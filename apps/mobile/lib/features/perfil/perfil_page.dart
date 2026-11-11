@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/perfil.dart';
 import '../../providers/app_providers.dart';
+import '../admin/equipo_page.dart';
+import '../admin/geocercas_page.dart';
 import '../admin/invitar_usuario_page.dart';
 import '../auth/auth_controller.dart';
 import '../auth/reset_password_page.dart';
@@ -168,6 +170,20 @@ class PerfilPage extends ConsumerWidget {
               ),
             ),
           ),
+          const SizedBox(height: 10),
+          _OpcionAdmin(
+            icono: Icons.edit_calendar_rounded,
+            titulo: 'Horarios del equipo',
+            subtitulo: 'Define días, horas y parque de cada empleado.',
+            destino: const EquipoPage(),
+          ),
+          const SizedBox(height: 10),
+          _OpcionAdmin(
+            icono: Icons.radar_rounded,
+            titulo: 'Geocercas de parques',
+            subtitulo: 'Ajusta en el mapa el centro y el radio de marcaje.',
+            destino: const GeocercasPage(),
+          ),
         ],
         const SizedBox(height: 18),
         Text(
@@ -296,6 +312,42 @@ class _Dato extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _OpcionAdmin extends StatelessWidget {
+  const _OpcionAdmin({
+    required this.icono,
+    required this.titulo,
+    required this.subtitulo,
+    required this.destino,
+  });
+
+  final IconData icono;
+  final String titulo;
+  final String subtitulo;
+  final Widget destino;
+
+  @override
+  Widget build(BuildContext context) {
+    final colores = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: colores.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colores.outlineVariant, width: 0.7),
+      ),
+      child: ListTile(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        leading: Icon(icono),
+        title: Text(titulo),
+        subtitle: Text(subtitulo),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => destino),
+        ),
       ),
     );
   }

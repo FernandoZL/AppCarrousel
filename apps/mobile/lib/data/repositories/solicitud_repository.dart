@@ -15,12 +15,14 @@ class SolicitudRepository {
     required DateTime inicio,
     required DateTime fin,
     required String justificacion,
+    String? jornadaId,
   }) async {
     await _client.from('solicitudes_horas_extras').insert({
       'centro_costo_id': centroCostoId,
       'inicio': inicio.toUtc().toIso8601String(),
       'fin': fin.toUtc().toIso8601String(),
       'justificacion': justificacion.trim(),
+      'jornada_id': ?jornadaId,
     });
   }
 

@@ -296,9 +296,9 @@ eq('RLS habilitada en las 6 tablas', await scalar(`
 eq('extensiones citext y pgcrypto', await scalar(`
   select count(*)::int from pg_extension where extname in ('citext','pgcrypto')
 `), 2);
-eq('políticas RLS creadas (2+4+4+1+3+4+1 puestos)', await scalar(`
+eq('políticas RLS creadas (2+4+4+1+3+4+1 puestos+2 horarios)', await scalar(`
   select count(*)::int from pg_policies where schemaname = 'public'
-`), 19);
+`), 21);
 eq('enum de estado de solicitud', await scalar(`
   select enum_range(null::public.estado_solicitud)::text
 `), '{pendiente,aprobada,rechazada,cancelada}');
@@ -1460,6 +1460,140 @@ ok('el admin no ve filas de otra empresa', !reporteGerA.some((r) => r.id === S.b
 await expectRoleError('anon no lee el reporte', 'anon', {}, `
   select count(*) from public.reporte_horas_extras
 `, [], '42501');
+
+// -----------------------------------------------------------------------------
+// Horario personalizado y horas extras detectadas por GPS (0015)
+// -----------------------------------------------------------------------------
+group('Horarios personalizados');
+const gerAClaims = claims(U.gerA, A.empresa, A.child, 'admin');
+
+eq('la empresa usa la zona horaria de Guatemala por defecto',
+  await scalar('select zona_horaria from public.empresas where id = $1', [A.empresa]),
+  'America/Guatemala');
+await expectError('rechaza una zona horaria inexistente', `
+  update public.empresas set zona_horaria = 'Marte/Olympus' where id = $1
+`, [A.empresa], '22023');
+
+const insertarHorario = `
+  insert into public.horarios (empleado_id, dia_semana, hora_entrada, hora_salida, parque_id)
+  values ($1, $2, $3, $4, $5)
+  returning empresa_id, empleado_id
+`;
+eq('el admin define el horario de su equipo',
+  await withRole('authenticated', gerAClaims, async () =>
+    (await q(insertarHorario, [U.empA, 1, '08:00', '17:00', P.child])).rows[0]),
+  { empresa_id: A.empresa, empleado_id: U.empA });
+
+await expectRoleError('el admin no define su propio horario', 'authenticated', gerAClaims,
+  insertarHorario, [U.gerA, 1, '08:00', '17:00', null], '42501');
+await expectRoleError('el admin no define horarios fuera de su subárbol', 'authenticated', gerAClaims,
+  insertarHorario, [U.gerRoot, 1, '08:00', '17:00', null], '42501');
+await expectRoleError('el horario no apunta a un parque fuera de su alcance', 'authenticated', gerAClaims,
+  insertarHorario, [U.empA, 2, '08:00', '17:00', P.sibling], '42501');
+await expectRoleError('el empleado no edita su horario', 'authenticated', empAClaims,
+  insertarHorario, [U.empA, 3, '08:00', '17:00', null], '42501');
+await expectRoleError('entrada y salida no pueden ser iguales', 'authenticated', gerAClaims,
+  insertarHorario, [U.empA, 4, '08:00', '08:00', null], '23514');
+
+// Horario de lunes para el resto de pruebas (como dueño: carga administrativa).
+await q(`
+  insert into public.horarios (empresa_id, empleado_id, dia_semana, hora_entrada, hora_salida, parque_id)
+  values ($1, $2, 1, '08:00', '17:00', $3)
+`, [A.empresa, U.empA, P.child]);
+
+eq('el empleado ve su horario',
+  await withRole('authenticated', empAClaims, async () =>
+    (await q('select dia_semana, hora_entrada from public.horarios')).rows),
+  [{ dia_semana: 1, hora_entrada: '08:00:00' }]);
+eq('otra empresa no ve el horario',
+  await withRole('authenticated', claims(U.empB, B.empresa, B.root, 'empleado'), async () =>
+    Number(await scalar('select count(*) from public.horarios'))),
+  0);
+
+group('Cumplimiento y horas extras por GPS');
+// Lunes 9 de noviembre de 2026 en Guatemala (UTC-6): entra 08:20 y sale 18:30.
+const JC = randomUUID();
+const jornadaLunes = async () => q(`
+  insert into public.jornadas (
+    id, empresa_id, empleado_id, parque_id, entrada_en, salida_en,
+    entrada_lat, entrada_lon, entrada_precision_metros,
+    salida_lat, salida_lon, salida_precision_metros, salida_dentro_geocerca
+  ) values ($1, $2, $3, $4, '2026-11-09 14:20:00+00', '2026-11-10 00:30:00+00',
+            14.6350, -90.5070, 5, 14.6350, -90.5070, 5, true)
+`, [JC, A.empresa, U.empA, P.child]);
+await jornadaLunes();
+
+const cumplimiento = await withRole('authenticated', empAClaims, async () =>
+  (await q(`
+    select fecha::text, minutos_tarde, llego_tarde, minutos_extra, en_parque_programado,
+           salida_programada = '2026-11-09 23:00:00+00'::timestamptz as salida_ok
+    from public.cumplimiento_jornadas where jornada_id = $1
+  `, [JC])).rows[0]);
+eq('compara la jornada con el horario del día local',
+  cumplimiento,
+  { fecha: '2026-11-09', minutos_tarde: 20, llego_tarde: true, minutos_extra: 90,
+    en_parque_programado: true, salida_ok: true });
+
+eq('sin horario ese día no inventa minutos extra',
+  await withRole('authenticated', empAClaims, async () =>
+    (await q(`
+      select minutos_extra from public.cumplimiento_jornadas where jornada_id = $1
+    `, [J.aCerrada])).rows),
+  [{ minutos_extra: null }]);
+
+await q('begin');
+try {
+  await q(`update public.horarios set hora_entrada = '22:00', hora_salida = '06:00'
+           where empleado_id = $1 and dia_semana = 1`, [U.empA]);
+  eq('un turno nocturno termina al día siguiente',
+    await scalar(`
+      select salida_programada = '2026-11-10 12:00:00+00'::timestamptz
+      from public.cumplimiento_jornadas where jornada_id = $1
+    `, [JC]),
+    true);
+} finally {
+  await q('rollback');
+}
+
+eq('el admin ve el cumplimiento de su equipo',
+  await withRole('authenticated', gerAClaims, async () =>
+    Number(await scalar('select count(*) from public.cumplimiento_jornadas where jornada_id = $1', [JC]))),
+  1);
+
+const solicitarDesdeJornada = `
+  insert into public.solicitudes_horas_extras
+    (centro_costo_id, inicio, fin, justificacion, jornada_id)
+  values ($1, '2026-11-09 23:00:00+00', '2026-11-10 00:30:00+00',
+          'Cierre del parque después del horario', $2)
+  returning jornada_id
+`;
+eq('la solicitud queda respaldada por la jornada GPS',
+  await withRole('authenticated', empAClaims, async () =>
+    (await q(solicitarDesdeJornada, [A.child, JC])).rows[0].jornada_id),
+  JC);
+
+await expectRoleError('no se respalda con la jornada de otra persona', 'authenticated',
+  claims(U.empGrand, A.empresa, A.grand, 'empleado'), solicitarDesdeJornada, [A.grand, JC], '42501');
+
+await q(`
+  insert into public.solicitudes_horas_extras
+    (empresa_id, empleado_id, centro_costo_id, inicio, fin, justificacion, jornada_id)
+  values ($1, $2, $3, '2026-11-09 23:00:00+00', '2026-11-10 00:30:00+00',
+          'Cierre del parque después del horario', $4)
+`, [A.empresa, U.empA, A.child, JC]);
+
+await expectRoleError('una jornada respalda una sola solicitud viva', 'authenticated', empAClaims,
+  solicitarDesdeJornada, [A.child, JC], '23505');
+
+eq('el cumplimiento indica que ya se solicitó',
+  await withRole('authenticated', empAClaims, async () =>
+    (await scalar('select solicitud_id is not null from public.cumplimiento_jornadas where jornada_id = $1', [JC]))),
+  true);
+
+eq('el reporte marca el respaldo GPS',
+  await withRole('authenticated', empAClaims, async () =>
+    await scalar('select bool_or(respaldo_gps) from public.reporte_horas_extras')),
+  true);
 
 // -----------------------------------------------------------------------------
 // Auditoría

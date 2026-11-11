@@ -12,6 +12,21 @@ final opcionesDeHoras = [for (var i = 1; i <= 24; i++) i * 30]
     .map((minutos) => Duration(minutes: minutos))
     .toList(growable: false);
 
+/// Datos que llegan de una jornada GPS con tiempo extra detectado.
+class SolicitudPrecargada {
+  const SolicitudPrecargada({
+    required this.jornadaId,
+    required this.inicio,
+    required this.cantidad,
+    this.centroId,
+  });
+
+  final String jornadaId;
+  final DateTime inicio;
+  final Duration cantidad;
+  final String? centroId;
+}
+
 /// Formulario de horas extras.
 ///
 /// Sigue el orden del formulario que se usa hoy ("Formato de horas Extras"):
@@ -19,7 +34,11 @@ final opcionesDeHoras = [for (var i = 1; i <= 24; i++) i * 30]
 /// costo. La persona que autoriza ya no se escribe: la calcula la base de
 /// datos desde la jerarquía y aquí solo se muestra.
 class SolicitudFormPage extends ConsumerStatefulWidget {
-  const SolicitudFormPage({super.key});
+  const SolicitudFormPage({super.key, this.precargada});
+
+  /// Si viene de una jornada GPS, fecha, hora, cantidad y CECO ya están
+  /// llenos y la solicitud queda respaldada por esa jornada.
+  final SolicitudPrecargada? precargada;
 
   @override
   ConsumerState<SolicitudFormPage> createState() => _SolicitudFormPageState();
@@ -38,6 +57,16 @@ class _SolicitudFormPageState extends ConsumerState<SolicitudFormPage> {
   @override
   void initState() {
     super.initState();
+    final precargada = widget.precargada;
+    if (precargada != null) {
+      _fecha = inicioDelDia(precargada.inicio);
+      _horaInicio = TimeOfDay.fromDateTime(precargada.inicio);
+      _cantidad = opcionesDeHoras.contains(precargada.cantidad)
+          ? precargada.cantidad
+          : opcionesDeHoras.last;
+      _centroId = precargada.centroId;
+      return;
+    }
     final ahora = DateTime.now();
     _fecha = inicioDelDia(ahora);
     _horaInicio = TimeOfDay(hour: (ahora.hour - 2).clamp(0, 23), minute: 0);
@@ -93,6 +122,7 @@ class _SolicitudFormPageState extends ConsumerState<SolicitudFormPage> {
             inicio: _inicio,
             fin: _fin,
             justificacion: _actividad.text,
+            jornadaId: widget.precargada?.jornadaId,
           );
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -144,6 +174,32 @@ class _SolicitudFormPageState extends ConsumerState<SolicitudFormPage> {
                 'horas extras.',
                 style: TextStyle(color: colores.onSurfaceVariant),
               ),
+              if (widget.precargada != null) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colores.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.gps_fixed_rounded,
+                        color: colores.onPrimaryContainer,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Detectado por tu marcaje GPS. Solo describe la '
+                          'actividad realizada.',
+                          style: TextStyle(color: colores.onPrimaryContainer),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 22),
               Row(
                 children: [

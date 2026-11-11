@@ -1,13 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/utils/horas_extra.dart';
 import '../data/models/centro_costo.dart';
+import '../data/models/horario.dart';
 import '../data/models/jornada.dart';
 import '../data/models/parque.dart';
 import '../data/models/perfil.dart';
 import '../data/models/solicitud_horas_extras.dart';
 import '../data/repositories/auth_repository.dart';
 import '../data/repositories/catalogo_repository.dart';
+import '../data/repositories/horario_repository.dart';
 import '../data/repositories/invitacion_repository.dart';
 import '../data/repositories/jornada_repository.dart';
 import '../data/repositories/solicitud_repository.dart';
@@ -26,6 +29,10 @@ final jornadaRepositoryProvider = Provider<JornadaRepository>(
 
 final solicitudRepositoryProvider = Provider<SolicitudRepository>(
   (ref) => SolicitudRepository(ref.watch(supabaseProvider)),
+);
+
+final horarioRepositoryProvider = Provider<HorarioRepository>(
+  (ref) => HorarioRepository(ref.watch(supabaseProvider)),
 );
 
 final catalogoRepositoryProvider = Provider<CatalogoRepository>(
@@ -150,3 +157,24 @@ Jornada? jornadaAbiertaDe(List<Jornada> jornadas) {
   }
   return null;
 }
+
+/// Horario semanal de un empleado (el propio o, para un admin, su equipo).
+final horariosDeProvider =
+    FutureProvider.autoDispose.family<List<Horario>, String>((ref, id) {
+  return ref.watch(horarioRepositoryProvider).horariosDe(id);
+});
+
+/// Jornadas de los últimos 30 días con horas extra detectadas por GPS que aún
+/// no se han solicitado. Se recalcula cuando cambian jornadas o solicitudes.
+final horasExtraPorSolicitarProvider =
+    FutureProvider.autoDispose<List<CumplimientoJornada>>((ref) async {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return const [];
+  ref.watch(jornadasStreamProvider);
+  ref.watch(solicitudesStreamProvider);
+  final filas = await ref.watch(horarioRepositoryProvider).cumplimientoPropio(
+        empleadoId: user.id,
+        desde: DateTime.now().subtract(const Duration(days: 30)),
+      );
+  return horasExtraPorSolicitar(filas);
+});
