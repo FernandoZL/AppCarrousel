@@ -1,3 +1,4 @@
+import 'package:carrousel_app/core/theme/app_theme.dart';
 import 'package:carrousel_app/data/models/horario.dart';
 import 'package:carrousel_app/data/models/parque.dart';
 import 'package:carrousel_app/features/dashboard/widgets/automatizacion_cards.dart';
@@ -41,8 +42,9 @@ void main() {
           horasExtraPorSolicitarProvider.overrideWith((ref) async => [fila]),
           parquesProvider.overrideWith((ref) async => [parque]),
         ],
-        child: const MaterialApp(
-          home: Scaffold(body: HorasExtraDetectadasCard()),
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(body: HorasExtraDetectadasCard()),
         ),
       ),
     );
@@ -60,8 +62,9 @@ void main() {
         overrides: [
           horasExtraPorSolicitarProvider.overrideWith((ref) async => []),
         ],
-        child: const MaterialApp(
-          home: Scaffold(body: HorasExtraDetectadasCard()),
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(body: HorasExtraDetectadasCard()),
         ),
       ),
     );
@@ -90,6 +93,7 @@ void main() {
           parquesProvider.overrideWith((ref) async => []),
         ],
         child: MaterialApp(
+          theme: AppTheme.light,
           home: Scaffold(
             body: ListView(
               children: const [

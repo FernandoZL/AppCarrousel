@@ -168,7 +168,10 @@ class _FilaDetectada extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
+          // El tema pide ancho completo (Size.fromHeight); dentro de una
+          // fila hay que darle un ancho mínimo finito.
           FilledButton.tonal(
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
             onPressed: onSolicitar,
             child: const Text('Solicitar'),
           ),
