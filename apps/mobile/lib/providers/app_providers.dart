@@ -2,12 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/utils/horas_extra.dart';
+import '../data/models/admin_models.dart';
 import '../data/models/centro_costo.dart';
 import '../data/models/horario.dart';
 import '../data/models/jornada.dart';
 import '../data/models/parque.dart';
 import '../data/models/perfil.dart';
 import '../data/models/solicitud_horas_extras.dart';
+import '../data/repositories/admin_repository.dart';
 import '../data/repositories/auth_repository.dart';
 import '../data/repositories/catalogo_repository.dart';
 import '../data/repositories/horario_repository.dart';
@@ -33,6 +35,10 @@ final solicitudRepositoryProvider = Provider<SolicitudRepository>(
 
 final horarioRepositoryProvider = Provider<HorarioRepository>(
   (ref) => HorarioRepository(ref.watch(supabaseProvider)),
+);
+
+final adminRepositoryProvider = Provider<AdminRepository>(
+  (ref) => AdminRepository(ref.watch(supabaseProvider)),
 );
 
 final catalogoRepositoryProvider = Provider<CatalogoRepository>(
@@ -177,4 +183,45 @@ final horasExtraPorSolicitarProvider =
         desde: DateTime.now().subtract(const Duration(days: 30)),
       );
   return horasExtraPorSolicitar(filas);
+});
+
+// --- Registro y módulo de administración ---------------------------------
+
+/// Solicitud de registro del usuario sin perfil (cuenta pendiente).
+final miRegistroProvider = FutureProvider.autoDispose<Registro?>((ref) async {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return null;
+  return ref.watch(adminRepositoryProvider).miRegistro(user.id);
+});
+
+final resumenAdminProvider =
+    FutureProvider.autoDispose<ResumenAdmin>((ref) async {
+  final user = ref.watch(currentUserProvider);
+  ref.watch(solicitudesStreamProvider);
+  return ref.watch(adminRepositoryProvider).resumen(user?.id ?? '');
+});
+
+final registrosProvider = FutureProvider.autoDispose<List<Registro>>((ref) {
+  return ref.watch(adminRepositoryProvider).registros();
+});
+
+final incidenciasProvider =
+    FutureProvider.autoDispose.family<List<Incidencia>, bool>((ref, abiertas) {
+  return ref.watch(adminRepositoryProvider).incidencias(abiertas: abiertas);
+});
+
+final puestosProvider =
+    FutureProvider.autoDispose<List<({String id, String nombre})>>((ref) {
+  return ref.watch(adminRepositoryProvider).puestos();
+});
+
+/// Jornadas del equipo de los últimos 14 días.
+final jornadasEquipoProvider =
+    FutureProvider.autoDispose<List<Jornada>>((ref) async {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return const [];
+  return ref.watch(adminRepositoryProvider).jornadasEquipo(
+        yo: user.id,
+        desde: DateTime.now().subtract(const Duration(days: 14)),
+      );
 });

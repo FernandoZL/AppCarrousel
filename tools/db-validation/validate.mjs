@@ -296,9 +296,9 @@ eq('RLS habilitada en las 6 tablas', await scalar(`
 eq('extensiones citext y pgcrypto', await scalar(`
   select count(*)::int from pg_extension where extname in ('citext','pgcrypto')
 `), 2);
-eq('políticas RLS creadas (2+4+4+1+3+4+1 puestos+2 horarios)', await scalar(`
+eq('políticas RLS creadas (2+4+4+1+3+4+1 puestos+2 horarios+4 de 0016)', await scalar(`
   select count(*)::int from pg_policies where schemaname = 'public'
-`), 21);
+`), 25);
 eq('enum de estado de solicitud', await scalar(`
   select enum_range(null::public.estado_solicitud)::text
 `), '{pendiente,aprobada,rechazada,cancelada}');
@@ -1594,6 +1594,152 @@ eq('el reporte marca el respaldo GPS',
   await withRole('authenticated', empAClaims, async () =>
     await scalar('select bool_or(respaldo_gps) from public.reporte_horas_extras')),
   true);
+
+// -----------------------------------------------------------------------------
+// Registro, incidencias y ajustes de jornada (0016)
+// -----------------------------------------------------------------------------
+group('Registro de colaboradores');
+const R = { nuevo: randomUUID(), otro: randomUUID(), invitado: randomUUID(), sinEmpresa: randomUUID() };
+await q(`
+  insert into auth.users (id, email, raw_app_meta_data, raw_user_meta_data) values
+    ($1, 'nuevo@example.com', '{}'::jsonb,
+     '{"empresa_codigo":"EMPRESA-A","nombre_completo":"Técnico Nuevo","telefono":"5555-0000"}'::jsonb),
+    ($2, 'otro@example.com', '{}'::jsonb,
+     '{"empresa_codigo":"EMPRESA-A","nombre_completo":"Otro Aspirante"}'::jsonb),
+    ($3, 'invitado@example.com', $5::jsonb,
+     '{"empresa_codigo":"EMPRESA-A","nombre_completo":"Invitado"}'::jsonb),
+    ($4, 'perdido@example.com', '{}'::jsonb,
+     '{"empresa_codigo":"NO-EXISTE","nombre_completo":"Sin Empresa"}'::jsonb)
+`, [R.nuevo, R.otro, R.invitado, R.sinEmpresa, appMeta(A.empresa, A.child, 'empleado')]);
+
+eq('el registro propio queda pendiente en su empresa',
+  (await q('select empresa_id, nombre, telefono, estado from public.registros where id = $1', [R.nuevo])).rows[0],
+  { empresa_id: A.empresa, nombre: 'Técnico Nuevo', telefono: '5555-0000', estado: 'pendiente' });
+eq('una invitación o un código desconocido no crean registro',
+  Number(await scalar('select count(*) from public.registros where id = any($1::uuid[])', [[R.invitado, R.sinEmpresa]])), 0);
+eq('sin asignación todavía no hay perfil',
+  Number(await scalar('select count(*) from public.perfiles where id = $1', [R.nuevo])), 0);
+
+eq('la persona ve su propia solicitud',
+  await withRole('authenticated', { sub: R.nuevo }, async () =>
+    await scalar('select estado::text from public.registros')),
+  'pendiente');
+eq('el admin de la empresa ve las solicitudes',
+  await withRole('authenticated', gerAClaims, async () =>
+    Number(await scalar('select count(*) from public.registros where estado = $1', ['pendiente']))),
+  2);
+eq('otra empresa no ve las solicitudes',
+  await withRole('authenticated', claims(U.empB, B.empresa, B.root, 'empleado'), async () =>
+    Number(await scalar('select count(*) from public.registros'))),
+  0);
+
+await expectRoleError('un empleado no aprueba registros', 'authenticated', empAClaims,
+  'select public.aprobar_registro($1, $2, null)', [R.nuevo, A.grand], '42501');
+await expectRoleError('el admin no asigna centros fuera de su subárbol', 'authenticated', gerAClaims,
+  'select public.aprobar_registro($1, $2, null)', [R.nuevo, A.sibling], '42501');
+
+await withRole('authenticated', gerAClaims, async () => {
+  await q('select public.aprobar_registro($1, $2, $3)', [R.nuevo, A.grand, PU.tecnicoA]);
+  await q('commit');
+  await q('begin');
+});
+eq('aprobar crea el perfil como empleado con centro y puesto',
+  (await q('select rol::text, centro_costo_id, puesto_id, nombre_completo::text as nombre from public.perfiles where id = $1', [R.nuevo])).rows[0],
+  { rol: 'empleado', centro_costo_id: A.grand, puesto_id: PU.tecnicoA, nombre: 'Técnico Nuevo' });
+eq('el registro queda aprobado y firmado',
+  (await q('select estado::text, revisado_por from public.registros where id = $1', [R.nuevo])).rows[0],
+  { estado: 'aprobado', revisado_por: U.gerA });
+
+await expectRoleError('un registro aprobado no se vuelve a aprobar', 'authenticated', gerAClaims,
+  'select public.aprobar_registro($1, $2, null)', [R.nuevo, A.grand], '23514');
+await expectRoleError('rechazar exige motivo', 'authenticated', gerAClaims,
+  'select public.rechazar_registro($1, $2)', [R.otro, 'no'], '23514');
+eq('el admin rechaza con motivo',
+  await withRole('authenticated', gerAClaims, async () => {
+    await q('select public.rechazar_registro($1, $2)', [R.otro, 'No pertenece a la empresa']);
+    return await scalar('select estado::text from public.registros where id = $1', [R.otro]);
+  }),
+  'rechazado');
+
+group('Incidencias automáticas');
+eq('la llegada tarde del lunes genera su incidencia',
+  (await q('select tipo::text, severidad::text, estado::text from public.incidencias where jornada_id = $1', [JC])).rows,
+  [{ tipo: 'llegada_tarde', severidad: 'baja', estado: 'abierta' }]);
+
+const TU = randomUUID();
+await q('begin');
+try {
+  await q(`insert into auth.users (id, email, raw_app_meta_data, raw_user_meta_data)
+           values ($1, 'turno@example.com', $2::jsonb, '{"nombre_completo":"Turno Prueba"}'::jsonb)`,
+    [TU, appMeta(A.empresa, A.child, 'empleado')]);
+  await q(`insert into public.horarios (empresa_id, empleado_id, dia_semana, hora_entrada, hora_salida, parque_id)
+           values ($1, $2, 1, '08:00', '17:00', $3)`, [A.empresa, TU, P.child]);
+  const jt = randomUUID();
+  // Lunes 9/11 a las 10:30 en otro parque y con GPS de 70 m.
+  await q(`insert into public.jornadas (id, empresa_id, empleado_id, parque_id, entrada_en,
+             entrada_lat, entrada_lon, entrada_precision_metros)
+           values ($1, $2, $3, $4, '2026-11-09 16:30:00+00', 14.6349, -90.5069, 70)`,
+    [jt, A.empresa, TU, P.root]);
+  eq('detecta tardanza, parque distinto y GPS impreciso',
+    (await q('select tipo::text, severidad::text from public.incidencias where jornada_id = $1 order by tipo', [jt])).rows,
+    [{ tipo: 'llegada_tarde', severidad: 'alta' }, { tipo: 'parque_distinto', severidad: 'media' },
+      { tipo: 'precision_baja', severidad: 'baja' }]);
+  await q(`update public.jornadas set salida_en = '2026-11-09 21:00:00+00', salida_lat = 14.6349,
+             salida_lon = -90.5069, salida_precision_metros = 5, salida_dentro_geocerca = true
+           where id = $1`, [jt]);
+  eq('salir a las 15:00 con horario hasta las 17:00 es salida temprana',
+    await scalar(`select severidad::text from public.incidencias where jornada_id = $1 and tipo = 'salida_temprana'`, [jt]),
+    'alta');
+} finally {
+  await q('rollback');
+}
+
+eq('el empleado ve sus incidencias',
+  await withRole('authenticated', empAClaims, async () =>
+    Number(await scalar('select count(*) from public.incidencias where jornada_id = $1', [JC]))),
+  1);
+eq('el empleado no puede cerrar sus incidencias',
+  await withRole('authenticated', empAClaims, async () =>
+    (await q(`update public.incidencias set estado = 'resuelta', resolucion = 'Me autojustifico'
+              where jornada_id = $1 returning id`, [JC])).rowCount),
+  0);
+await expectRoleError('resolver exige una nota', 'authenticated', gerAClaims, `
+  update public.incidencias set estado = 'resuelta', resolucion = 'ok' where jornada_id = $1
+`, [JC], '23514');
+eq('el admin resuelve y queda firmado',
+  await withRole('authenticated', gerAClaims, async () =>
+    (await q(`update public.incidencias set estado = 'resuelta', resolucion = 'Tráfico por lluvia, justificado'
+              where jornada_id = $1 returning resuelto_por, resuelto_en is not null as fecha`, [JC])).rows[0]),
+  { resuelto_por: U.gerA, fecha: true });
+
+group('Ajustes de jornada');
+await expectRoleError('el empleado no ajusta su jornada', 'authenticated', empAClaims,
+  'select public.ajustar_jornada($1, $2, $3, $4)',
+  [JC, '2026-11-09 14:00:00+00', '2026-11-10 00:30:00+00', 'Olvidé marcar a tiempo'], '42501');
+await expectRoleError('no se ajusta una jornada abierta', 'authenticated',
+  claims(U.gerRoot, A.empresa, A.root, 'admin'), 'select public.ajustar_jornada($1, $2, $3, $4)',
+  [J.grandAbierta, '2026-11-09 14:00:00+00', '2026-11-09 20:00:00+00', 'Corrección de prueba'], '23514');
+await expectRoleError('el ajuste exige motivo', 'authenticated', gerAClaims,
+  'select public.ajustar_jornada($1, $2, $3, $4)',
+  [JC, '2026-11-09 14:00:00+00', '2026-11-10 00:30:00+00', 'corto'], '23514');
+await expectRoleError('la salida no puede quedar antes de la entrada', 'authenticated', gerAClaims,
+  'select public.ajustar_jornada($1, $2, $3, $4)',
+  [JC, '2026-11-10 01:00:00+00', '2026-11-10 00:30:00+00', 'Rango invertido de prueba'], '23514');
+
+await withRole('authenticated', gerAClaims, async () => {
+  await q('select public.ajustar_jornada($1, $2, $3, $4)',
+    [JC, '2026-11-09 14:00:00+00', '2026-11-10 00:30:00+00', 'Marcó tarde por falla del celular']);
+  await q('commit');
+  await q('begin');
+});
+eq('el ajuste cambia la jornada',
+  await scalar(`select entrada_en = '2026-11-09 14:00:00+00'::timestamptz from public.jornadas where id = $1`, [JC]),
+  true);
+eq('el empleado ve el historial del ajuste',
+  await withRole('authenticated', empAClaims, async () =>
+    (await q(`select entrada_anterior = '2026-11-09 14:20:00+00'::timestamptz as antes, motivo
+              from public.ajustes_jornada where jornada_id = $1`, [JC])).rows),
+  [{ antes: true, motivo: 'Marcó tarde por falla del celular' }]);
 
 // -----------------------------------------------------------------------------
 // Auditoría

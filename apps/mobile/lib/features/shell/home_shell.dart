@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/perfil.dart';
+import '../../core/widgets/ecosistema.dart';
 import '../admin/aprobaciones_page.dart';
+import '../admin/panel_admin_page.dart';
 import '../dashboard/dashboard_page.dart';
 import '../perfil/perfil_page.dart';
 import '../solicitudes/solicitudes_page.dart';
@@ -24,19 +26,25 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     final paginas = <Widget>[
       const DashboardPage(),
       const SolicitudesPage(),
+      if (widget.perfil.esAdmin) const PanelAdminPage(),
       if (widget.perfil.esAdmin) const AprobacionesPage(),
       PerfilPage(perfil: widget.perfil),
     ];
     final titulos = <String>[
       'Inicio',
       'Horas extras',
+      if (widget.perfil.esAdmin) 'Equipo',
       if (widget.perfil.esAdmin) 'Aprobaciones',
       'Mi perfil',
     ];
     final indice = _indice.clamp(0, paginas.length - 1);
 
     return Scaffold(
-      appBar: AppBar(title: Text(titulos[indice])),
+      appBar: AppBar(
+        title: Text(titulos[indice]),
+        bottom: const FranjaMarca(),
+        actions: const [BotonTema()],
+      ),
       body: IndexedStack(index: indice, children: paginas),
       bottomNavigationBar: NavigationBar(
         selectedIndex: indice,
@@ -52,6 +60,12 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             selectedIcon: Icon(Icons.more_time_rounded),
             label: 'Horas extras',
           ),
+          if (widget.perfil.esAdmin)
+            const NavigationDestination(
+              icon: Icon(Icons.groups_outlined),
+              selectedIcon: Icon(Icons.groups_rounded),
+              label: 'Equipo',
+            ),
           if (widget.perfil.esAdmin)
             const NavigationDestination(
               icon: Icon(Icons.fact_check_outlined),
