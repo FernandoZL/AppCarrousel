@@ -296,9 +296,9 @@ eq('RLS habilitada en las 6 tablas', await scalar(`
 eq('extensiones citext y pgcrypto', await scalar(`
   select count(*)::int from pg_extension where extname in ('citext','pgcrypto')
 `), 2);
-eq('políticas RLS creadas (2+4+4+1+3+4)', await scalar(`
+eq('políticas RLS creadas (2+4+4+1+3+4+1 puestos)', await scalar(`
   select count(*)::int from pg_policies where schemaname = 'public'
-`), 18);
+`), 19);
 eq('enum de estado de solicitud', await scalar(`
   select enum_range(null::public.estado_solicitud)::text
 `), '{pendiente,aprobada,rechazada,cancelada}');
@@ -1328,6 +1328,138 @@ try {
 } finally {
   await q('delete from auth.users where id = $1', [inactivoAdmin]);
 }
+
+// -----------------------------------------------------------------------------
+// Puestos, jefe responsable, autorizador y reporte (0012–0014)
+// -----------------------------------------------------------------------------
+group('Puestos');
+const PU = {
+  tecnicoA: 'a2000000-0000-4000-8000-000000000001',
+  jefeA: 'a2000000-0000-4000-8000-000000000002',
+  tecnicoB: 'b2000000-0000-4000-8000-000000000001',
+};
+await q(`
+  insert into public.puestos (id, empresa_id, nombre) values
+    ($1, $2, 'Técnico'),
+    ($3, $2, 'Jefe de mantenimiento'),
+    ($4, $5, 'Técnico');
+`, [PU.tecnicoA, A.empresa, PU.jefeA, PU.tecnicoB, B.empresa]);
+
+eq('el empleado solo ve los puestos de su empresa',
+  await withRole('authenticated', empAClaims, async () =>
+    (await q('select id from public.puestos order by nombre')).rows.map((r) => r.id)),
+  [PU.jefeA, PU.tecnicoA]);
+
+await expectError('rechaza un puesto repetido en la empresa', `
+  insert into public.puestos (empresa_id, nombre) values ($1, 'técnico')
+`, [A.empresa], '23505');
+
+await expectRoleError('el empleado no crea puestos', 'authenticated', empAClaims, `
+  insert into public.puestos (empresa_id, nombre) values ($1, 'Autoasignado')
+`, [A.empresa], '42501');
+
+await q(`
+  update auth.users
+  set raw_app_meta_data = raw_app_meta_data || jsonb_build_object('puesto_id', $2::text)
+  where id = $1
+`, [U.empA, PU.tecnicoA]);
+eq('el puesto se sincroniza desde app_metadata',
+  await scalar('select puesto_id from public.perfiles where id = $1', [U.empA]), PU.tecnicoA);
+
+await expectError('rechaza un puesto de otra empresa', `
+  update auth.users
+  set raw_app_meta_data = raw_app_meta_data || jsonb_build_object('puesto_id', $2::text)
+  where id = $1
+`, [U.empA, PU.tecnicoB], '23503');
+
+await expectRoleError('el empleado no cambia su propio puesto', 'authenticated', empAClaims, `
+  update public.perfiles set puesto_id = $2 where id = $1
+`, [U.empA, PU.jefeA], '42501');
+
+group('Jefe responsable y persona que autoriza');
+const autorizadorDe = (empleado) =>
+  scalar('select private.autorizador_para($1)', [empleado]);
+
+eq('sin responsables, autoriza un admin del mismo centro', await autorizadorDe(U.empA), U.gerA);
+eq('el nieto sube hasta el admin del centro hijo', await autorizadorDe(U.empGrand), U.gerA);
+eq('un admin nunca se autoriza a sí mismo: sube a la raíz', await autorizadorDe(U.gerA), U.gerRoot);
+eq('nadie por encima de la raíz', await autorizadorDe(U.gerRoot), null);
+
+await q('begin');
+try {
+  await q('update public.centros_costo set responsable_id = $2 where id = $1', [A.child, U.gerRoot]);
+  eq('el responsable configurado tiene prioridad sobre otros admins',
+    await autorizadorDe(U.empA), U.gerRoot);
+  await q('update public.perfiles set activo = false where id = $1', [U.gerRoot]);
+  eq('un responsable inactivo se ignora', await autorizadorDe(U.empA), U.gerA);
+} finally {
+  await q('rollback');
+}
+
+await expectError('el responsable debe tener alcance sobre el centro', `
+  update public.centros_costo set responsable_id = $2 where id = $1
+`, [A.sibling, U.gerA], '23514');
+
+await expectError('el responsable debe ser admin', `
+  update public.centros_costo set responsable_id = $2 where id = $1
+`, [A.child, U.empA], '23514');
+
+await expectRoleError('un admin no asigna responsables desde la API', 'authenticated',
+  claims(U.gerA, A.empresa, A.child, 'admin'), `
+  update public.centros_costo set responsable_id = $2 where id = $1
+`, [A.grand, U.gerA], '42501');
+
+eq('las solicitudes existentes ya tienen autorizador',
+  (await q(`
+    select autorizador_id, autorizador_nombre
+    from public.solicitudes_horas_extras where id = $1
+  `, [S.aPendiente])).rows[0],
+  { autorizador_id: U.gerA, autorizador_nombre: 'Admin A' });
+
+eq('la solicitud nueva guarda quién autoriza',
+  await withRole('authenticated', claims(U.empGrand, A.empresa, A.grand, 'empleado'), async () =>
+    (await q(`
+      insert into public.solicitudes_horas_extras (centro_costo_id, inicio, fin, justificacion)
+      values ($1, now(), now() + interval '2 hours', 'Cambio de bandas en la rueda')
+      returning autorizador_id, autorizador_nombre
+    `, [A.grand])).rows[0]),
+  { autorizador_id: U.gerA, autorizador_nombre: 'Admin A' });
+
+await expectRoleError('el cliente no elige al autorizador', 'authenticated', empAClaims, `
+  insert into public.solicitudes_horas_extras
+    (centro_costo_id, inicio, fin, justificacion, autorizador_id)
+  values ($1, now(), now() + interval '1 hour', 'Intento de elegir autorizador', $2)
+`, [A.grand, U.empA], '42501');
+
+eq('el empleado consulta su autorizador con nombre y puesto',
+  await withRole('authenticated', empAClaims, async () =>
+    (await q('select id, nombre_completo, puesto from public.mi_autorizador()')).rows),
+  [{ id: U.gerA, nombre_completo: 'Admin A', puesto: null }]);
+
+await expectRoleError('anon no consulta autorizadores', 'anon', {}, `
+  select * from public.mi_autorizador()
+`, [], '42501');
+
+group('Reporte de horas extras');
+const filasReporte = (jwtClaims) =>
+  withRole('authenticated', jwtClaims, async () =>
+    (await q('select id, empleado, puesto, horas, ceco_codigo, persona_que_autoriza from public.reporte_horas_extras order by id')).rows);
+
+const reporteEmpA = await filasReporte(empAClaims);
+eq('el empleado solo ve sus filas en el reporte',
+  [...new Set(reporteEmpA.map((r) => r.empleado))], ['Empleado A']);
+const filaPendiente = reporteEmpA.find((r) => r.id === S.aPendiente);
+eq('el reporte trae columnas del formulario',
+  [filaPendiente.puesto, filaPendiente.horas, filaPendiente.ceco_codigo, filaPendiente.persona_que_autoriza],
+  ['Técnico', '3.00', 'A-GRAND', 'Admin A']);
+
+const reporteGerA = await filasReporte(claims(U.gerA, A.empresa, A.child, 'admin'));
+ok('el admin ve las filas de su subárbol', reporteGerA.some((r) => r.id === S.grandPendiente));
+ok('el admin no ve filas de otra empresa', !reporteGerA.some((r) => r.id === S.bPendiente));
+
+await expectRoleError('anon no lee el reporte', 'anon', {}, `
+  select count(*) from public.reporte_horas_extras
+`, [], '42501');
 
 // -----------------------------------------------------------------------------
 // Auditoría

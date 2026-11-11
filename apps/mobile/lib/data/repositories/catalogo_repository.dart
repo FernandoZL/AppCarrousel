@@ -3,6 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/centro_costo.dart';
 import '../models/parque.dart';
 
+typedef PersonaResumen = ({String nombre, String? puesto});
+
 class CatalogoRepository {
   CatalogoRepository(this._client);
 
@@ -27,11 +29,18 @@ class CatalogoRepository {
     return filas.map(Parque.fromMap).toList(growable: false);
   }
 
-  Future<Map<String, String>> nombresDePerfiles() async {
-    final filas = await _client.from('perfiles').select('id, nombre_completo');
+  /// Nombre y puesto de los perfiles visibles por RLS (el propio o el equipo).
+  Future<Map<String, PersonaResumen>> personas() async {
+    final filas = await _client
+        .from('perfiles')
+        .select('id, nombre_completo, puestos!perfiles_puesto_fk(nombre)');
     return {
       for (final fila in filas)
-        fila['id'] as String: fila['nombre_completo'] as String,
+        fila['id'] as String: (
+          nombre: fila['nombre_completo'] as String,
+          puesto:
+              (fila['puestos'] as Map<String, dynamic>?)?['nombre'] as String?,
+        ),
     };
   }
 }

@@ -41,7 +41,9 @@ class AuthRepository {
 
   Future<void> actualizarContrasena(String password) async {
     if (password.length < 8) {
-      throw const AppException('La contraseña debe tener al menos 8 caracteres.');
+      throw const AppException(
+        'La contraseña debe tener al menos 8 caracteres.',
+      );
     }
     await _client.auth.updateUser(UserAttributes(password: password));
   }
@@ -51,7 +53,9 @@ class AuthRepository {
   Future<Perfil?> obtenerPerfil(String userId) async {
     final data = await _client
         .from('perfiles')
-        .select('*, centros_costo!perfiles_centro_fk(nombre)')
+        .select(
+          '*, centros_costo!perfiles_centro_fk(nombre), puestos!perfiles_puesto_fk(nombre)',
+        )
         .eq('id', userId)
         .maybeSingle();
     if (data == null) return null;

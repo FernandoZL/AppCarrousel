@@ -31,9 +31,7 @@ class PerfilPage extends ConsumerWidget {
       context: context,
       builder: (dialogo) => AlertDialog(
         title: const Text('Cerrar sesión'),
-        content: const Text(
-          '¿Quieres salir de Carrousel en este dispositivo?',
-        ),
+        content: const Text('¿Quieres salir de Carrousel en este dispositivo?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogo).pop(false),
@@ -123,6 +121,12 @@ class PerfilPage extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 18),
+        if (perfil.puesto != null)
+          _Dato(
+            icono: Icons.badge_outlined,
+            etiqueta: 'Puesto',
+            valor: perfil.puesto!,
+          ),
         _Dato(
           icono: Icons.attractions_outlined,
           etiqueta: 'Centro de costo',
@@ -160,9 +164,7 @@ class PerfilPage extends ConsumerWidget {
               ),
               trailing: const Icon(Icons.chevron_right_rounded),
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const InvitarUsuarioPage(),
-                ),
+                MaterialPageRoute(builder: (_) => const InvitarUsuarioPage()),
               ),
             ),
           ),
@@ -193,9 +195,7 @@ class PerfilPage extends ConsumerWidget {
             ),
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const ResetPasswordPage(),
-              ),
+              MaterialPageRoute(builder: (_) => const ResetPasswordPage()),
             ),
           ),
         ),

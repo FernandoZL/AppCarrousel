@@ -51,8 +51,7 @@ final perfilProvider = FutureProvider.autoDispose<Perfil?>((ref) async {
   return ref.watch(authRepositoryProvider).obtenerPerfil(user.id);
 });
 
-final jornadasStreamProvider =
-    StreamProvider.autoDispose<List<Jornada>>((ref) {
+final jornadasStreamProvider = StreamProvider.autoDispose<List<Jornada>>((ref) {
   final user = ref.watch(currentUserProvider);
   if (user == null) return const Stream.empty();
   return ref
@@ -80,15 +79,15 @@ final solicitudesStreamProvider =
       .stream(primaryKey: ['id'])
       .order('creado_en', ascending: false)
       .map((filas) {
-        final solicitudes =
-            filas.map(SolicitudHorasExtras.fromMap).toList();
+        final solicitudes = filas.map(SolicitudHorasExtras.fromMap).toList();
         solicitudes.sort((a, b) => b.creadoEn.compareTo(a.creadoEn));
         return solicitudes;
       });
 });
 
-final centrosProvider =
-    FutureProvider.autoDispose<List<CentroCosto>>((ref) async {
+final centrosProvider = FutureProvider.autoDispose<List<CentroCosto>>((
+  ref,
+) async {
   return ref.watch(catalogoRepositoryProvider).centros();
 });
 
@@ -96,9 +95,18 @@ final parquesProvider = FutureProvider.autoDispose<List<Parque>>((ref) async {
   return ref.watch(catalogoRepositoryProvider).parques();
 });
 
-final nombresPerfilesProvider =
-    FutureProvider.autoDispose<Map<String, String>>((ref) async {
-  return ref.watch(catalogoRepositoryProvider).nombresDePerfiles();
+final personasProvider =
+    FutureProvider.autoDispose<Map<String, PersonaResumen>>((ref) async {
+  return ref.watch(catalogoRepositoryProvider).personas();
+});
+
+/// Jefe que autoriza las solicitudes del usuario actual (null si nadie).
+final miAutorizadorProvider = FutureProvider.autoDispose<PersonaResumen?>((
+  ref,
+) async {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return null;
+  return ref.watch(solicitudRepositoryProvider).miAutorizador();
 });
 
 /// Une el stream de Realtime con los nombres de especialistas y centros.
@@ -106,26 +114,27 @@ final nombresPerfilesProvider =
 final solicitudesDetalladasProvider =
     Provider.autoDispose<AsyncValue<List<SolicitudDetalle>>>((ref) {
   final solicitudes = ref.watch(solicitudesStreamProvider);
-  final nombres = ref.watch(nombresPerfilesProvider);
+  final personas = ref.watch(personasProvider);
   final centros = ref.watch(centrosProvider);
 
   return solicitudes.when(
     loading: () => const AsyncLoading(),
     error: (error, stack) => AsyncError(error, stack),
     data: (filas) {
-      final mapaNombres = nombres.valueOrNull;
+      final mapaPersonas = personas.valueOrNull;
       final listaCentros = centros.valueOrNull;
-      if (mapaNombres == null || listaCentros == null) {
+      if (mapaPersonas == null || listaCentros == null) {
         return const AsyncLoading();
       }
       final mapaCentros = {
-        for (final centro in listaCentros) centro.id: centro.nombre,
+        for (final centro in listaCentros) centro.id: centro.etiqueta,
       };
       final detalles = filas.map((solicitud) {
+        final persona = mapaPersonas[solicitud.empleadoId];
         return SolicitudDetalle(
           solicitud: solicitud,
-          empleadoNombre:
-              mapaNombres[solicitud.empleadoId] ?? 'Especialista',
+          empleadoNombre: persona?.nombre ?? 'Especialista',
+          empleadoPuesto: persona?.puesto,
           centroNombre:
               mapaCentros[solicitud.centroCostoId] ?? 'Centro de costo',
         );

@@ -31,3 +31,33 @@ List<CentroCosto> subarbolDe(List<CentroCosto> centros, String raizId) {
   subarbol.sort((a, b) => a.nombre.compareTo(b.nombre));
   return subarbol;
 }
+
+String _sinTildes(String texto) {
+  const con = 'áéíóúüñÁÉÍÓÚÜÑ';
+  const sin = 'aeiouunAEIOUUN';
+  final buffer = StringBuffer();
+  for (final letra in texto.split('')) {
+    final i = con.indexOf(letra);
+    buffer.write(i < 0 ? letra : sin[i]);
+  }
+  return buffer.toString().toLowerCase();
+}
+
+/// Busca por código o nombre, sin importar tildes ni mayúsculas. Con varias
+/// palabras, todas deben aparecer ("andaria kid" encuentra 057.01).
+/// Ordena por código para que cada parque quede junto a sus hijos.
+List<CentroCosto> filtrarCentros(List<CentroCosto> centros, String consulta) {
+  final palabras = _sinTildes(consulta.trim())
+      .split(RegExp(r'\s+'))
+      .where((palabra) => palabra.isNotEmpty)
+      .toList(growable: false);
+  final resultado = centros.where((centro) {
+    final texto = _sinTildes('${centro.codigo} ${centro.nombre}');
+    return palabras.every(texto.contains);
+  }).toList();
+  resultado.sort((a, b) {
+    final porCodigo = a.codigo.compareTo(b.codigo);
+    return porCodigo != 0 ? porCodigo : a.nombre.compareTo(b.nombre);
+  });
+  return resultado;
+}
