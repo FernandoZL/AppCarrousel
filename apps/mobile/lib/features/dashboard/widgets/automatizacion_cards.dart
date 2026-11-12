@@ -118,7 +118,7 @@ class HorasExtraDetectadasCard extends ConsumerWidget {
                         jornadaId: fila.jornadaId,
                         inicio: inicioDelExtra(fila),
                         cantidad: extraRedondeado(fila.minutosExtra!),
-                        centroId: parques[fila.parqueId]?.centroCostoId,
+                        parqueId: fila.parqueId,
                       ),
                     ),
                   ),

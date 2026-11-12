@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/errors/error_messages.dart';
+import '../../core/utils/centros.dart';
 import '../../core/utils/duraciones.dart';
-import '../../core/widgets/selector_ceco.dart';
 import '../../data/models/centro_costo.dart';
+import '../../data/models/horario.dart';
+import '../../data/models/parque.dart';
 import '../../providers/app_providers.dart';
 
 /// Cantidades de horas que se ofrecen, en medias horas (0.5 a 12).
@@ -18,13 +20,15 @@ class SolicitudPrecargada {
     required this.jornadaId,
     required this.inicio,
     required this.cantidad,
-    this.centroId,
+    this.parqueId,
   });
 
   final String jornadaId;
   final DateTime inicio;
   final Duration cantidad;
-  final String? centroId;
+
+  /// Lugar donde marcó; el centro de costo arranca en el del lugar.
+  final String? parqueId;
 }
 
 /// Formulario de horas extras.
@@ -51,6 +55,7 @@ class _SolicitudFormPageState extends ConsumerState<SolicitudFormPage> {
   late DateTime _fecha;
   late TimeOfDay _horaInicio;
   Duration _cantidad = const Duration(hours: 2);
+  String? _lugarId;
   String? _centroId;
   bool _enviando = false;
 
@@ -64,7 +69,7 @@ class _SolicitudFormPageState extends ConsumerState<SolicitudFormPage> {
       _cantidad = opcionesDeHoras.contains(precargada.cantidad)
           ? precargada.cantidad
           : opcionesDeHoras.last;
-      _centroId = precargada.centroId;
+      _lugarId = precargada.parqueId;
       return;
     }
     final ahora = DateTime.now();
@@ -150,8 +155,35 @@ class _SolicitudFormPageState extends ConsumerState<SolicitudFormPage> {
     final centrosAsync = ref.watch(centrosProvider);
     final centros = centrosAsync.valueOrNull ?? const <CentroCosto>[];
     final autorizador = ref.watch(miAutorizadorProvider);
+    final lugares = <Parque>[...?ref.watch(parquesProvider).valueOrNull]
+      ..sort((a, b) => a.nombre.compareTo(b.nombre));
+    final extras = ref.watch(centrosPorLugarProvider).valueOrNull ?? const {};
 
-    _centroId ??= perfil.valueOrNull?.centroCostoId;
+    // Sin lugar elegido: el del horario de ese día, si lo tiene.
+    if (_lugarId == null) {
+      final yo = perfil.valueOrNull?.id;
+      final horarios =
+          yo == null ? null : ref.watch(horariosDeProvider(yo)).valueOrNull;
+      for (final h in horarios ?? const <Horario>[]) {
+        if (h.diaSemana == _fecha.weekday && h.parqueId != null) {
+          _lugarId = h.parqueId;
+        }
+      }
+    }
+    Parque? lugar;
+    for (final l in lugares) {
+      if (l.id == _lugarId) lugar = l;
+    }
+    final centrosLugar = lugar == null
+        ? const <CentroCosto>[]
+        : centrosDeLugar(
+            centroDelLugar: lugar.centroCostoId,
+            extras: extras[lugar.id] ?? const {},
+            centros: centros,
+          );
+    if (lugar != null && !centrosLugar.any((c) => c.id == _centroId)) {
+      _centroId = lugar.centroCostoId;
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Horas extras')),
@@ -282,15 +314,49 @@ class _SolicitudFormPageState extends ConsumerState<SolicitudFormPage> {
                   mensaje: 'No se pudieron cargar los centros de costo.',
                   onReintentar: () => ref.invalidate(centrosProvider),
                 )
-              else
-                SelectorCeco(
-                  centros: centros,
-                  initialValue: _centroId,
-                  onChanged: (valor) => setState(() => _centroId = valor),
-                  validator: (valor) => valor == null
-                      ? 'Elige el centro de costo de la actividad.'
-                      : null,
+              else ...[
+                DropdownButtonFormField<String>(
+                  initialValue: lugar?.id,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Lugar',
+                    helperText: 'Parque, Oficina Central o Bodega',
+                    prefixIcon: Icon(Icons.place_outlined),
+                  ),
+                  items: [
+                    for (final l in lugares)
+                      DropdownMenuItem(value: l.id, child: Text(l.nombre)),
+                  ],
+                  onChanged: (valor) => setState(() {
+                    _lugarId = valor;
+                    _centroId = null;
+                  }),
+                  validator: (valor) =>
+                      valor == null ? 'Elige dónde hiciste la actividad.' : null,
                 ),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  key: ValueKey('ceco-${lugar?.id}'),
+                  initialValue: _centroId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Centro de costo',
+                    prefixIcon: Icon(Icons.account_tree_outlined),
+                  ),
+                  items: [
+                    for (final c in centrosLugar)
+                      DropdownMenuItem(
+                        value: c.id,
+                        child: Text(c.etiqueta, overflow: TextOverflow.ellipsis),
+                      ),
+                  ],
+                  onChanged: lugar == null
+                      ? null
+                      : (valor) => setState(() => _centroId = valor),
+                  validator: (valor) =>
+                      valor == null ? 'Elige el centro de costo.' : null,
+                ),
+              ],
               const SizedBox(height: 18),
               _PersonaQueAutoriza(autorizador: autorizador),
               const SizedBox(height: 22),

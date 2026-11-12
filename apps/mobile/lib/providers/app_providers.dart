@@ -104,6 +104,11 @@ final centrosProvider = FutureProvider.autoDispose<List<CentroCosto>>((
   return ref.watch(catalogoRepositoryProvider).centros();
 });
 
+final centrosPorLugarProvider =
+    FutureProvider.autoDispose<Map<String, Set<String>>>((ref) {
+  return ref.watch(catalogoRepositoryProvider).centrosPorLugar();
+});
+
 final parquesProvider = FutureProvider.autoDispose<List<Parque>>((ref) async {
   return ref.watch(catalogoRepositoryProvider).parques();
 });

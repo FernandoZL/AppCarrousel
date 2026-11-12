@@ -1,6 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../core/errors/error_messages.dart';
 import '../models/horario.dart';
 
 class HorarioRepository {
@@ -66,28 +65,5 @@ class HorarioRepository {
         .gte('entrada_en', desde.toUtc().toIso8601String())
         .order('entrada_en', ascending: false);
     return filas.map(CumplimientoJornada.fromMap).toList(growable: false);
-  }
-
-  /// Ajusta la geocerca de un parque (RLS: admin del subárbol del parque).
-  Future<void> guardarGeocerca({
-    required String parqueId,
-    required double latitud,
-    required double longitud,
-    required double radioMetros,
-  }) async {
-    final filas = await _client
-        .from('parques')
-        .update({
-          'latitud': latitud,
-          'longitud': longitud,
-          'radio_metros': radioMetros.round(),
-        })
-        .eq('id', parqueId)
-        .select('id');
-    if (filas.isEmpty) {
-      throw const AppException(
-        'No tienes permiso para editar la geocerca de este parque.',
-      );
-    }
   }
 }

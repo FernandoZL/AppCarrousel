@@ -80,6 +80,125 @@ class AdminRepository {
     ];
   }
 
+  // --- Lugares (parques, Oficina Central, Bodega) --------------------------
+
+  /// Crea o actualiza un lugar con su geocerca. RLS exige que su centro de
+  /// costo esté en el alcance del admin.
+  Future<void> guardarLugar({
+    String? id,
+    required String empresaId,
+    required String centroCostoId,
+    required String codigo,
+    required String nombre,
+    String? direccion,
+    required double latitud,
+    required double longitud,
+    required double radioMetros,
+  }) async {
+    final datos = {
+      'centro_costo_id': centroCostoId,
+      'codigo': codigo.trim().toUpperCase(),
+      'nombre': nombre.trim(),
+      'direccion': (direccion?.trim().isEmpty ?? true) ? null : direccion!.trim(),
+      'latitud': latitud,
+      'longitud': longitud,
+      'radio_metros': radioMetros.round(),
+    };
+    if (id == null) {
+      await _client.from('parques').insert({...datos, 'empresa_id': empresaId});
+      return;
+    }
+    final filas =
+        await _client.from('parques').update(datos).eq('id', id).select('id');
+    if (filas.isEmpty) {
+      throw const AppException('No tienes permiso para editar este lugar.');
+    }
+  }
+
+  /// Borra el lugar; si ya tiene jornadas u horarios, se desactiva para
+  /// conservar el historial.
+  Future<bool> eliminarLugar(String id) async {
+    try {
+      final filas =
+          await _client.from('parques').delete().eq('id', id).select('id');
+      if (filas.isEmpty) {
+        throw const AppException('No tienes permiso para eliminar este lugar.');
+      }
+      return true;
+    } on PostgrestException catch (error) {
+      if (error.code != '23503') rethrow;
+      await _client.from('parques').update({'activo': false}).eq('id', id);
+      return false;
+    }
+  }
+
+  Future<void> agregarCentroALugar({
+    required String empresaId,
+    required String lugarId,
+    required String centroId,
+  }) =>
+      _client.from('parques_centros').insert({
+        'empresa_id': empresaId,
+        'parque_id': lugarId,
+        'centro_costo_id': centroId,
+      });
+
+  Future<void> quitarCentroDeLugar({
+    required String lugarId,
+    required String centroId,
+  }) =>
+      _client
+          .from('parques_centros')
+          .delete()
+          .eq('parque_id', lugarId)
+          .eq('centro_costo_id', centroId);
+
+  // --- Centros de costo ----------------------------------------------------
+
+  Future<void> guardarCentro({
+    String? id,
+    required String empresaId,
+    String? padreId,
+    required String codigo,
+    required String nombre,
+  }) async {
+    final datos = {'codigo': codigo.trim(), 'nombre': nombre.trim()};
+    if (id == null) {
+      await _client.from('centros_costo').insert({
+        ...datos,
+        'empresa_id': empresaId,
+        'padre_id': padreId,
+      });
+      return;
+    }
+    final filas = await _client
+        .from('centros_costo')
+        .update(datos)
+        .eq('id', id)
+        .select('id');
+    if (filas.isEmpty) {
+      throw const AppException('No tienes permiso para editar este centro.');
+    }
+  }
+
+  Future<void> eliminarCentro(String id) async {
+    try {
+      final filas =
+          await _client.from('centros_costo').delete().eq('id', id).select('id');
+      if (filas.isEmpty) {
+        throw const AppException('No tienes permiso para eliminar este centro.');
+      }
+    } on PostgrestException catch (error) {
+      if (error.code == '23503') {
+        throw const AppException(
+          'No se puede eliminar: tiene sub-centros, lugares, personas o '
+          'solicitudes asociadas.',
+        );
+      }
+      rethrow;
+    }
+  }
+
   // --- Incidencias ---------------------------------------------------------
 
   Future<List<Incidencia>> incidencias({required bool abiertas}) async {

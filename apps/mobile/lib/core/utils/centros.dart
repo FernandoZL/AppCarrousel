@@ -61,3 +61,35 @@ List<CentroCosto> filtrarCentros(List<CentroCosto> centros, String consulta) {
   });
   return resultado;
 }
+
+/// Parques y áreas principales: los hijos directos de la raíz de la empresa.
+/// Los sub-centros (Kiddies, Cajas Mágicas, Caseta) quedan para contabilidad
+/// pero no se ofrecen en la app, para que cada parque aparezca una sola vez.
+List<CentroCosto> centrosPrincipales(List<CentroCosto> centros) {
+  final raices = {
+    for (final c in centros)
+      if (c.padreId == null) c.id,
+  };
+  return centros.where((c) => raices.contains(c.padreId)).toList();
+}
+
+/// Centros que se pueden cargar en un lugar: el suyo con sus sub-centros y
+/// los agregados en `parques_centros` (también con sus sub-centros).
+/// Sin repetidos; el centro propio del lugar va primero y el resto por código.
+List<CentroCosto> centrosDeLugar({
+  required String centroDelLugar,
+  required Set<String> extras,
+  required List<CentroCosto> centros,
+}) {
+  final vistos = <String>{};
+  final resultado = <CentroCosto>[];
+  for (final raiz in [centroDelLugar, ...extras]) {
+    for (final c in subarbolDe(centros, raiz)) {
+      if (vistos.add(c.id)) resultado.add(c);
+    }
+  }
+  final propio = resultado.where((c) => c.id == centroDelLugar);
+  final resto = resultado.where((c) => c.id != centroDelLugar).toList()
+    ..sort((a, b) => a.codigo.compareTo(b.codigo));
+  return [...propio, ...resto];
+}

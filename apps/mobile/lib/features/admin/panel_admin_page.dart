@@ -6,7 +6,8 @@ import '../../core/widgets/ecosistema.dart';
 import '../../providers/app_providers.dart';
 import 'equipo_page.dart';
 import 'exportar_reporte.dart';
-import 'geocercas_page.dart';
+import 'centros_costo_page.dart';
+import 'lugares_page.dart';
 import 'incidencias_page.dart';
 import 'invitar_usuario_page.dart';
 import 'jornadas_equipo_page.dart';
@@ -129,10 +130,16 @@ class PanelAdminPage extends ConsumerWidget {
                     onTap: () => _ir(context, const EquipoPage()),
                   ),
                   _Opcion(
-                    icono: Icons.radar_rounded,
-                    titulo: 'Geocercas de parques',
-                    subtitulo: 'Centro y radio de marcaje en el mapa',
-                    onTap: () => _ir(context, const GeocercasPage()),
+                    icono: Icons.place_rounded,
+                    titulo: 'Lugares y geocercas',
+                    subtitulo: 'Crear, editar o eliminar parques, oficina y bodega',
+                    onTap: () => _ir(context, const LugaresPage()),
+                  ),
+                  _Opcion(
+                    icono: Icons.account_tree_rounded,
+                    titulo: 'Centros de costo',
+                    subtitulo: 'Parques, áreas y sub-centros',
+                    onTap: () => _ir(context, const CentrosCostoPage()),
                   ),
                   _Opcion(
                     icono: Icons.download_rounded,

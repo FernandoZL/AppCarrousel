@@ -296,9 +296,9 @@ eq('RLS habilitada en las 6 tablas', await scalar(`
 eq('extensiones citext y pgcrypto', await scalar(`
   select count(*)::int from pg_extension where extname in ('citext','pgcrypto')
 `), 2);
-eq('políticas RLS creadas (2+4+4+1+3+4+1 puestos+2 horarios+4 de 0016)', await scalar(`
+eq('políticas RLS creadas (2+4+4+1+3+4+1 puestos+2 horarios+4 de 0016+2 de 0017)', await scalar(`
   select count(*)::int from pg_policies where schemaname = 'public'
-`), 25);
+`), 27);
 eq('enum de estado de solicitud', await scalar(`
   select enum_range(null::public.estado_solicitud)::text
 `), '{pendiente,aprobada,rechazada,cancelada}');
@@ -1740,6 +1740,36 @@ eq('el empleado ve el historial del ajuste',
     (await q(`select entrada_anterior = '2026-11-09 14:20:00+00'::timestamptz as antes, motivo
               from public.ajustes_jornada where jornada_id = $1`, [JC])).rows),
   [{ antes: true, motivo: 'Marcó tarde por falla del celular' }]);
+
+
+// -----------------------------------------------------------------------------
+// Centros de costo por lugar (0017)
+// -----------------------------------------------------------------------------
+group('Centros de costo por lugar');
+eq('el admin agrega un centro a un lugar de su alcance',
+  await withRole('authenticated', gerAClaims, async () =>
+    (await q(`insert into public.parques_centros (empresa_id, parque_id, centro_costo_id)
+              values ($1, $2, $3) returning parque_id`, [A.empresa, P.child, A.sibling])).rows[0].parque_id),
+  P.child);
+await expectRoleError('no configura lugares fuera de su alcance', 'authenticated', gerAClaims, `
+  insert into public.parques_centros (empresa_id, parque_id, centro_costo_id) values ($1, $2, $3)
+`, [A.empresa, P.sibling, A.child], '42501');
+await expectRoleError('un empleado no configura lugares', 'authenticated', empAClaims, `
+  insert into public.parques_centros (empresa_id, parque_id, centro_costo_id) values ($1, $2, $3)
+`, [A.empresa, P.child, A.grand], '42501');
+await expectError('no mezcla centros de otra empresa', `
+  insert into public.parques_centros (empresa_id, parque_id, centro_costo_id) values ($1, $2, $3)
+`, [A.empresa, P.child, B.root], '23503');
+await q(`insert into public.parques_centros (empresa_id, parque_id, centro_costo_id) values ($1, $2, $3)`,
+  [A.empresa, P.child, A.sibling]);
+eq('el empleado ve los centros de cada lugar',
+  await withRole('authenticated', empAClaims, async () =>
+    Number(await scalar('select count(*) from public.parques_centros where parque_id = $1', [P.child]))),
+  1);
+eq('otra empresa no los ve',
+  await withRole('authenticated', claims(U.empB, B.empresa, B.root, 'empleado'), async () =>
+    Number(await scalar('select count(*) from public.parques_centros'))),
+  0);
 
 // -----------------------------------------------------------------------------
 // Auditoría

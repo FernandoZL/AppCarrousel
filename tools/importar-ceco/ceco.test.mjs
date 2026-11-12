@@ -6,6 +6,7 @@ import {
   generarSql,
   leerListado,
   limpiarNombre,
+  nombrePadre,
   normalizarCodigo,
 } from './ceco.mjs';
 
@@ -65,10 +66,33 @@ test('reporta duplicados y prefiere el nombre no genérico', () => {
   assert.equal(centros.filter((c) => c.codigo === '057.05').length, 1);
 });
 
-test('un hijo sin padre en el listado sube a primer nivel', () => {
-  const { centros, sinPadre } = construirJerarquia([{ codigo: '10602', nombre: 'Mantenimiento' }]);
-  assert.deepEqual(sinPadre, [{ codigo: '106.02', padre: '106' }]);
-  assert.equal(centros[0].padre, null);
+test('crea el parque que falta con el nombre común de sus hijos', () => {
+  const { centros, sinPadre } = construirJerarquia([
+    { codigo: '060.01', nombre: 'Cinestar Kiddies' },
+    { codigo: '060.02', nombre: 'Cinestar Cajas Magicas' },
+    { codigo: '06803', nombre: 'Cine Xela Cm' },
+  ]);
+  assert.deepEqual(sinPadre, [
+    { codigo: '060', nombre: 'Cinestar', hijos: 2 },
+    { codigo: '068', nombre: 'Cine Xela', hijos: 1 },
+  ]);
+  assert.deepEqual(centros.filter((c) => !c.padre).map((c) => c.codigo), ['060', '068']);
+  assert.equal(centros.find((c) => c.codigo === '060.02').padre, '060');
+});
+
+test('descarta registros de prueba', () => {
+  const { centros, descartadas } = construirJerarquia([
+    { codigo: '000.0123', nombre: 'Kenny-Pruebas' },
+    { codigo: '105', nombre: 'Administracion' },
+  ]);
+  assert.deepEqual(centros.map((c) => c.codigo), ['105']);
+  assert.equal(descartadas.length, 1);
+});
+
+test('nombre del parque a partir de sus sub-centros', () => {
+  assert.equal(nombrePadre(['Futeca Dinamia Kiddies', 'Futeca Dinamia Cajas Magicas']), 'Futeca Dinamia');
+  assert.equal(nombrePadre(['Vidu Surf Van']), 'Vidu Surf Van');
+  assert.equal(nombrePadre(['Los Encuentros Kiddies', 'Los Encuentro Cajas Magicas']), 'Los Encuentros');
 });
 
 test('lee TSV de MySQL y CSV', () => {

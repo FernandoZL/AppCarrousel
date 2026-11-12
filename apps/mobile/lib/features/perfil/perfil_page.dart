@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/perfil.dart';
 import '../../providers/app_providers.dart';
 import '../admin/equipo_page.dart';
-import '../admin/geocercas_page.dart';
+import '../admin/lugares_page.dart';
 import '../admin/invitar_usuario_page.dart';
 import '../auth/auth_controller.dart';
 import '../auth/reset_password_page.dart';
@@ -180,9 +180,9 @@ class PerfilPage extends ConsumerWidget {
           const SizedBox(height: 10),
           _OpcionAdmin(
             icono: Icons.radar_rounded,
-            titulo: 'Geocercas de parques',
-            subtitulo: 'Ajusta en el mapa el centro y el radio de marcaje.',
-            destino: const GeocercasPage(),
+            titulo: 'Lugares y geocercas',
+            subtitulo: 'Crea, edita o elimina lugares y su radio de marcaje.',
+            destino: const LugaresPage(),
           ),
         ],
         const SizedBox(height: 18),

@@ -39,6 +39,27 @@ function puntaje(fila) {
   return valor;
 }
 
+const ES_PRUEBA = /prueba/i;
+
+// Palabras que indican el tipo de sub-centro y no forman parte del parque.
+const TIPOS = /\b(kiddies|cajas?|magicas?|magic|cm|caseta|juegos|eventos)\b/gi;
+
+/** Nombre del parque a partir de los nombres de sus sub-centros. */
+export function nombrePadre(nombres) {
+  const limpios = nombres.map((n) => n.replace(TIPOS, ' ').replace(/\s+/g, ' ').trim());
+  const palabras = limpios.map((n) => n.split(' '));
+  const comun = [];
+  for (let i = 0; i < Math.min(...palabras.map((p) => p.length)); i++) {
+    // Tolera plurales mal escritos ("Encuentro" / "Encuentros"): se queda
+    // con la forma más larga si una es prefijo de la otra.
+    const formas = palabras.map((p) => p[i]);
+    const larga = formas.reduce((a, b) => (b.length > a.length ? b : a));
+    if (!formas.every((f) => larga.toLowerCase().startsWith(f.toLowerCase()) && larga.length - f.length <= 1)) break;
+    comun.push(larga);
+  }
+  return comun.join(' ') || limpios.sort((a, b) => a.length - b.length)[0] || '';
+}
+
 /**
  * Convierte filas { codigo, nombre } en centros listos para insertar.
  *
@@ -46,8 +67,8 @@ function puntaje(fila) {
  * - centros: [{ codigo, nombre, padre }] ordenados para que cada padre se
  *   inserte antes que sus hijos. padre es null para los de primer nivel.
  * - conflictos: códigos repetidos con nombres distintos (se conservó uno).
- * - sinPadre: hijos cuyo padre no estaba en el listado (quedan en primer nivel).
- * - descartadas: filas sin código.
+ * - sinPadre: parques principales creados porque solo venían sus sub-centros.
+ * - descartadas: filas sin código o de prueba.
  */
 export function construirJerarquia(filas) {
   const porCodigo = new Map();
@@ -81,12 +102,29 @@ export function construirJerarquia(filas) {
     }
   }
 
-  const sinPadre = [];
+  // Registros de prueba que no son centros de costo reales.
+  for (const [codigo, centro] of porCodigo) {
+    if (ES_PRUEBA.test(centro.nombre) || /^0+(\.|$)/.test(codigo)) {
+      descartadas.push({ codigo, nombre: centro.nombre });
+      porCodigo.delete(codigo);
+    }
+  }
+
+  // Si falta el parque principal (ej. 060), se crea con el nombre común de
+  // sus hijos ("Cinestar Kiddies" + "Cinestar Cajas Magicas" → "Cinestar").
+  // Así cada parque aparece una sola vez en el primer nivel.
+  const huerfanos = new Map();
   for (const centro of porCodigo.values()) {
     if (centro.padre && !porCodigo.has(centro.padre)) {
-      sinPadre.push({ codigo: centro.codigo, padre: centro.padre });
-      centro.padre = null;
+      if (!huerfanos.has(centro.padre)) huerfanos.set(centro.padre, []);
+      huerfanos.get(centro.padre).push(centro.nombre);
     }
+  }
+  const sinPadre = [];
+  for (const [codigo, nombres] of huerfanos) {
+    const nombre = nombrePadre(nombres) || codigo;
+    porCodigo.set(codigo, { codigo, nombre, padre: null });
+    sinPadre.push({ codigo, nombre, hijos: nombres.length });
   }
 
   const ordenar = (a, b) => a.codigo.localeCompare(b.codigo, 'es', { numeric: true });

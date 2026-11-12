@@ -211,8 +211,12 @@ class _HojaAprobarState extends ConsumerState<_HojaAprobar> {
   Widget build(BuildContext context) {
     final perfil = ref.watch(perfilProvider).valueOrNull;
     final centros = ref.watch(centrosProvider).valueOrNull ?? const <CentroCosto>[];
-    final alcance =
+    final subarbol =
         perfil == null ? centros : subarbolDe(centros, perfil.centroCostoId);
+    final principales = centrosPrincipales(subarbol);
+    // Un admin de un solo parque no tiene "principales" debajo: se le ofrece
+    // su propio subárbol.
+    final alcance = principales.isEmpty ? subarbol : principales;
     final puestos = ref.watch(puestosProvider).valueOrNull ?? const [];
 
     return SafeArea(

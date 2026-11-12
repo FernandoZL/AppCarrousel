@@ -44,10 +44,10 @@ process.stdout.write(generarSql({
 // El resumen va a stderr para no mezclarse con el SQL.
 console.error(`CECO leídos: ${filas.length}`);
 console.error(`CECO a cargar: ${centros.length} (${centros.filter((c) => !c.padre).length} de primer nivel)`);
-console.error(`Filas sin código descartadas: ${descartadas.length}`);
+console.error(`Filas descartadas (sin código o de prueba): ${descartadas.length}`);
 for (const c of conflictos) {
   console.error(`Código repetido ${c.codigo}: se conserva "${c.conservado}", se descarta "${c.descartado}"`);
 }
 for (const c of sinPadre) {
-  console.error(`Sin padre ${c.padre} en el listado: ${c.codigo} queda en primer nivel`);
+  console.error(`Parque creado ${c.codigo} "${c.nombre}" para ${c.hijos} sub-centros sin padre`);
 }

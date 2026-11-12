@@ -29,6 +29,20 @@ class CatalogoRepository {
     return filas.map(Parque.fromMap).toList(growable: false);
   }
 
+  /// Centros adicionales por lugar (tabla `parques_centros`).
+  Future<Map<String, Set<String>>> centrosPorLugar() async {
+    final filas = await _client
+        .from('parques_centros')
+        .select('parque_id, centro_costo_id');
+    final mapa = <String, Set<String>>{};
+    for (final f in filas) {
+      mapa
+          .putIfAbsent(f['parque_id'] as String, () => <String>{})
+          .add(f['centro_costo_id'] as String);
+    }
+    return mapa;
+  }
+
   /// Nombre y puesto de los perfiles visibles por RLS (el propio o el equipo).
   Future<Map<String, PersonaResumen>> personas() async {
     final filas = await _client

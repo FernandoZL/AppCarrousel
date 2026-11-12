@@ -128,4 +128,33 @@ void main() {
       'Sin código',
     );
   });
+
+  test('solo ofrece parques y áreas principales', () {
+    final catalogo = [
+      const CentroCosto(id: 'raiz', codigo: 'OPS', nombre: 'Corporación'),
+      const CentroCosto(id: '1', codigo: '057', nombre: 'Andaria', padreId: 'raiz'),
+      const CentroCosto(
+          id: '2', codigo: '057.01', nombre: 'Andaria Kiddies', padreId: '1'),
+      const CentroCosto(id: '3', codigo: '106', nombre: 'Mantenimiento', padreId: 'raiz'),
+    ];
+    expect(centrosPrincipales(catalogo).map((c) => c.codigo), ['057', '106']);
+  });
+
+  test('un lugar ofrece su centro, sus sub-centros y los agregados', () {
+    final catalogo = [
+      const CentroCosto(id: 'raiz', codigo: 'OPS', nombre: 'Corporación'),
+      const CentroCosto(
+          id: 'adm', codigo: '105', nombre: 'Administración', padreId: 'raiz'),
+      const CentroCosto(
+          id: 'rh', codigo: '105.02', nombre: 'Recursos Humanos', padreId: 'adm'),
+      const CentroCosto(
+          id: 'ger', codigo: '104', nombre: 'Gerencia', padreId: 'raiz'),
+      const CentroCosto(id: 'and', codigo: '057', nombre: 'Andaria', padreId: 'raiz'),
+    ];
+    expect(
+      centrosDeLugar(centroDelLugar: 'adm', extras: {'ger'}, centros: catalogo)
+          .map((c) => c.codigo),
+      ['105', '104', '105.02'],
+    );
+  });
 }
