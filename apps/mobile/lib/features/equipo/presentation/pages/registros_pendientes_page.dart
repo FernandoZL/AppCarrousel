@@ -5,6 +5,7 @@ import 'package:carrousel_app/core/errors/error_messages.dart';
 import 'package:carrousel_app/core/utils/duraciones.dart';
 import 'package:carrousel_app/core/widgets/estado_widgets.dart';
 import 'package:carrousel_app/features/catalogo/domain/entities/centro_costo.dart';
+import 'package:carrousel_app/features/catalogo/domain/entities/puesto.dart';
 import 'package:carrousel_app/features/catalogo/presentation/providers/catalogo_providers.dart';
 import 'package:carrousel_app/features/equipo/domain/entities/registro_pendiente.dart';
 import 'package:carrousel_app/features/equipo/presentation/providers/equipo_providers.dart';
@@ -29,16 +30,25 @@ class RegistrosPendientesPage extends ConsumerWidget {
       return;
     }
 
-    final centroId = await showDialog<String>(
+    final puestos = (ref.read(puestosProvider).valueOrNull ?? const <Puesto>[])
+        .where((puesto) => puesto.activo)
+        .toList(growable: false);
+
+    final resultado = await showDialog<_Aprobacion>(
       context: context,
-      builder: (_) => _DialogoAprobar(registro: registro, centros: centros),
+      builder: (_) => _DialogoAprobar(
+        registro: registro,
+        centros: centros,
+        puestos: puestos,
+      ),
     );
-    if (centroId == null || !context.mounted) return;
+    if (resultado == null || !context.mounted) return;
 
     try {
       await ref.read(aprobarRegistroProvider)(
         registroId: registro.id,
-        centroCostoId: centroId,
+        centroCostoId: resultado.centroCostoId,
+        puestoId: resultado.puestoId,
       );
       ref.invalidate(registrosPendientesProvider);
       ref.invalidate(nombresPerfilesProvider);
@@ -258,11 +268,23 @@ class _TarjetaRegistro extends StatelessWidget {
   }
 }
 
+class _Aprobacion {
+  const _Aprobacion({required this.centroCostoId, this.puestoId});
+
+  final String centroCostoId;
+  final String? puestoId;
+}
+
 class _DialogoAprobar extends StatefulWidget {
-  const _DialogoAprobar({required this.registro, required this.centros});
+  const _DialogoAprobar({
+    required this.registro,
+    required this.centros,
+    required this.puestos,
+  });
 
   final RegistroPendiente registro;
   final List<CentroCosto> centros;
+  final List<Puesto> puestos;
 
   @override
   State<_DialogoAprobar> createState() => _DialogoAprobarState();
@@ -270,6 +292,7 @@ class _DialogoAprobar extends StatefulWidget {
 
 class _DialogoAprobarState extends State<_DialogoAprobar> {
   String? _centroId;
+  String _puestoId = '';
 
   @override
   void initState() {
@@ -310,6 +333,26 @@ class _DialogoAprobarState extends State<_DialogoAprobar> {
               ],
               onChanged: (valor) => setState(() => _centroId = valor),
             ),
+            if (widget.puestos.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _puestoId,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Puesto (opcional)',
+                  prefixIcon: Icon(Icons.badge_outlined),
+                ),
+                items: [
+                  const DropdownMenuItem(value: '', child: Text('Sin puesto')),
+                  for (final puesto in widget.puestos)
+                    DropdownMenuItem(
+                      value: puesto.id,
+                      child: Text('${puesto.nombre} · ${puesto.codigo}'),
+                    ),
+                ],
+                onChanged: (valor) => setState(() => _puestoId = valor ?? ''),
+              ),
+            ],
             const SizedBox(height: 12),
             const Text(
               'La cuenta se aprobará siempre con rol Empleado. Después podrás '
@@ -327,7 +370,12 @@ class _DialogoAprobarState extends State<_DialogoAprobar> {
         FilledButton(
           onPressed: _centroId == null
               ? null
-              : () => Navigator.of(context).pop(_centroId),
+              : () => Navigator.of(context).pop(
+                  _Aprobacion(
+                    centroCostoId: _centroId!,
+                    puestoId: _puestoId.isEmpty ? null : _puestoId,
+                  ),
+                ),
           child: const Text('Aprobar'),
         ),
       ],

@@ -3,6 +3,7 @@ import 'package:carrousel_app/features/catalogo/domain/entities/centro_costo.dar
 import 'package:carrousel_app/features/catalogo/domain/entities/parque.dart';
 import 'package:carrousel_app/features/catalogo/domain/entities/parque_centro.dart';
 import 'package:carrousel_app/features/catalogo/domain/entities/lugar_catalogo.dart';
+import 'package:carrousel_app/features/catalogo/domain/entities/puesto.dart';
 import 'package:carrousel_app/features/catalogo/domain/repositories/catalogo_repository.dart';
 import 'package:carrousel_app/features/catalogo/domain/utils/lugares.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -60,5 +61,60 @@ class SupabaseCatalogoRepository implements CatalogoRepository {
       for (final fila in filas)
         fila['id'] as String: fila['nombre_completo'] as String,
     };
+  }
+
+  @override
+  Future<List<Puesto>> puestos() async {
+    final filas = await _client
+        .from('puestos')
+        .select('id, empresa_id, codigo, nombre, descripcion, activo')
+        .order('activo', ascending: false)
+        .order('nombre');
+    return filas.map(puestoDesdeMapa).toList(growable: false);
+  }
+
+  @override
+  Future<void> crearPuesto({
+    required String empresaId,
+    required String codigo,
+    required String nombre,
+    String? descripcion,
+  }) async {
+    await _client.from('puestos').insert({
+      'empresa_id': empresaId,
+      'codigo': codigo.trim(),
+      'nombre': nombre.trim(),
+      'descripcion': _textoOpcional(descripcion),
+      'activo': true,
+    });
+  }
+
+  @override
+  Future<void> actualizarPuesto({
+    required String id,
+    required String codigo,
+    required String nombre,
+    String? descripcion,
+    required bool activo,
+  }) async {
+    await _client
+        .from('puestos')
+        .update({
+          'codigo': codigo.trim(),
+          'nombre': nombre.trim(),
+          'descripcion': _textoOpcional(descripcion),
+          'activo': activo,
+        })
+        .eq('id', id);
+  }
+
+  @override
+  Future<void> eliminarPuesto(String id) async {
+    await _client.from('puestos').delete().eq('id', id);
+  }
+
+  static String? _textoOpcional(String? valor) {
+    final texto = valor?.trim();
+    return texto == null || texto.isEmpty ? null : texto;
   }
 }
