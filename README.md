@@ -267,6 +267,7 @@ Las pruebas de integración levantan un servidor que emula Supabase Auth/PostgRE
 | 2026-11-13 | Backend MT-02 — autorizador, horarios, registro, CECO por lugar, incidencias y reportes | `dgiron-2025071` | [#56](https://github.com/dgiron-2025071/AppCarrousel/pull/56) | Mergeado a `develop` | 330 pruebas OK |
 | 2026-11-16 | `tools/importar-ceco` — CSV a SQL idempotente | `dgiron-2025071` | [#57](https://github.com/dgiron-2025071/AppCarrousel/pull/57) | Mergeado a `develop` | 25 pruebas Node, 337 de base de datos |
 | 2026-11-16 | App Flutter — equipo, horarios, reportes, tema y navegación responsive | `dgiron-2025071` | [#59](https://github.com/dgiron-2025071/AppCarrousel/pull/59) | Mergeado a `develop` | `flutter analyze`, 58 pruebas |
+| 2026-11-16 | Release MT-02 — importador de CECO y app de jornadas | `develop` | [#60](https://github.com/dgiron-2025071/AppCarrousel/pull/60) | Mergeado a `main` | `flutter analyze`, 58 pruebas, 25 Node |
 
 > Nota de proceso: el PR #1 se creó como borrador y GitHub devolvió un error de GraphQL al intentar marcarlo como listo. Se cerró y se recreó como PR #2. El PR #14 no existe.
 
