@@ -2463,6 +2463,15 @@ eq('el código de empresa crea una solicitud pendiente',
       [T.reg1]);
   }), 'pendiente');
 
+eq('el alta sincroniza el nombre declarado a user_metadata',
+  await withRole('authenticated', { sub: T.reg1 }, async () => {
+    await q(`select public.solicitar_registro('EMPRESA-A', 'Nombre Declarado')`);
+    await q('reset role');
+    return scalar(
+      `select raw_user_meta_data ->> 'nombre_completo' from auth.users where id = $1`,
+      [T.reg1]);
+  }), 'Nombre Declarado');
+
 await expectRoleError('un código inexistente no crea la solicitud',
   'authenticated', { sub: T.reg1 },
   `select public.solicitar_registro('NO-EXISTE', 'Registro Uno')`, [], '23503');

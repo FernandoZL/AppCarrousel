@@ -18,6 +18,22 @@ class IniciarConGoogle {
   Future<bool> call() => _repo.iniciarConGoogle();
 }
 
+class RegistrarCuenta {
+  const RegistrarCuenta(this._repo);
+
+  final AuthRepository _repo;
+
+  Future<ResultadoRegistroCuenta> call({
+    required String email,
+    required String password,
+    required String nombreCompleto,
+  }) => _repo.registrarCuenta(
+    email: email,
+    password: password,
+    nombreCompleto: nombreCompleto,
+  );
+}
+
 class EnviarRecuperacion {
   const EnviarRecuperacion(this._repo);
 
@@ -40,6 +56,14 @@ class CerrarSesion {
   final AuthRepository _repo;
 
   Future<void> call() => _repo.cerrarSesion();
+}
+
+class RefrescarSesion {
+  const RefrescarSesion(this._repo);
+
+  final AuthRepository _repo;
+
+  Future<void> call() => _repo.refrescarSesion();
 }
 
 class ObtenerPerfil {
