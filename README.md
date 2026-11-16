@@ -272,6 +272,7 @@ Las pruebas de integración levantan un servidor que emula Supabase Auth/PostgRE
 | 2026-11-16 | App Flutter — equipo, horarios, reportes, tema y navegación responsive | `dgiron-2025071` | [#59](https://github.com/dgiron-2025071/AppCarrousel/pull/59) | Mergeado a `develop` | `flutter analyze`, 58 pruebas |
 | 2026-11-16 | Release MT-02 - importador de CECO y app de jornadas | `develop` | [#60](https://github.com/dgiron-2025071/AppCarrousel/pull/60) | Mergeado a `main` | `flutter analyze`, 58 pruebas, 25 Node |
 | 2026-11-16 | App Flutter - registro propio con código de empresa y nombre visible | `dgiron-2025071` | [#61](https://github.com/dgiron-2025071/AppCarrousel/pull/61) | Mergeado a `develop` | `flutter analyze`, 65 pruebas, 338 DB |
+| 2026-11-16 | Release MT-02 - registro propio con código de empresa | `develop` | [#62](https://github.com/dgiron-2025071/AppCarrousel/pull/62) | Mergeado a `main` | `flutter analyze`, 65 pruebas, 338 DB |
 
 > Nota de proceso: el PR #1 se creó como borrador y GitHub devolvió un error de GraphQL al intentar marcarlo como listo. Se cerró y se recreó como PR #2. El PR #14 no existe.
 
