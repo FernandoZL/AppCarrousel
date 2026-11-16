@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:carrousel_app/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:carrousel_app/features/auth/presentation/pages/forgot_password_page.dart';
+import 'package:carrousel_app/features/auth/presentation/pages/registro_cuenta_page.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -41,6 +42,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('No se pudo abrir Google.')),
     );
+  }
+
+  void _abrirRegistro() {
+    ref.read(authControllerProvider.notifier).limpiarError();
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const RegistroCuentaPage()));
   }
 
   @override
@@ -181,11 +188,28 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     ),
                     const SizedBox(height: 18),
                     Text(
-                      'El acceso se crea por invitación del administrador.',
+                      'Crea tu cuenta con el código de empresa. Un administrador '
+                      'aprobará tu acceso como empleado.',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: colores.onSurfaceVariant,
                           ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '¿Aún no tienes cuenta?',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: colores.onSurfaceVariant,
+                              ),
+                        ),
+                        TextButton(
+                          onPressed: cargando ? null : _abrirRegistro,
+                          child: const Text('Crear cuenta'),
+                        ),
+                      ],
                     ),
                   ],
                 ),

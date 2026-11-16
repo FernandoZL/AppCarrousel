@@ -52,13 +52,28 @@ String mensajeDeError(Object error) {
         if (texto.contains('justificaci')) {
           return 'La justificación debe tener entre 10 y 2000 caracteres.';
         }
+        if (texto.contains('perfil aprovisionado')) {
+          return 'Tu cuenta ya tiene acceso a Carrousel. Actualiza o vuelve a iniciar sesión.';
+        }
+        if (texto.contains('nombre completo')) {
+          return 'El nombre completo debe tener entre 1 y 160 caracteres.';
+        }
         return 'Los datos no cumplen las reglas de la solicitud.';
       case '23505':
-        if (error.message.toLowerCase().contains('jornadas')) {
+        final texto = error.message.toLowerCase();
+        if (texto.contains('jornadas')) {
           return 'Ya tienes una jornada abierta. Cierra la actual antes de abrir otra.';
+        }
+        if (texto.contains('solicitud de alta')) {
+          return 'Ya tienes una solicitud de alta pendiente.';
         }
         return 'Ese registro ya existe.';
       case '23503':
+        final texto = error.message.toLowerCase();
+        if (texto.contains('código de empresa') ||
+            texto.contains('codigo de empresa')) {
+          return 'El código de empresa no existe o la empresa está suspendida.';
+        }
         return 'El centro o parque seleccionado ya no está disponible.';
       case '42501':
         return 'No tienes permiso para realizar esta acción.';
