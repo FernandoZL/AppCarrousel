@@ -112,9 +112,17 @@ La app arranca siempre en la pantalla de inicio de sesión: **no hay usuarios ni
 - **Login** con correo/contraseña, recuperación de contraseña y **Continuar con Google** (OAuth con PKCE y deep link).
 - **Dashboard del empleado** con horas de hoy, semana y mes, jornada en curso y últimos marcajes; se actualiza con Realtime.
 - **Marcaje de entrada/salida** con `flutter_map` + OpenStreetMap, GPS nativo y selección del parque. El mapa usa `InteractiveFlag.none`; la geocerca se valida en PostgreSQL. Si el parque se desactiva durante el turno, la app conserva ese parque para poder cerrar la jornada y no lo ofrece para nuevas entradas. Si el administrador mueve o redimensiona el parque, el cierre se valida contra la geocerca guardada al entrar.
-- **Horas extras:** rango de horas, parque/centro de costo donde apoyó y justificación. La solicitud nace `pendiente`.
+- **Horas extras:** rango de horas, lugar (parque) y centro de costo habilitado para ese lugar, más la justificación. El formulario elige primero el lugar y luego su CECO; la solicitud nace `pendiente`.
 - **Historial propio** de solicitudes con estado, comentario del administrador y actualización en tiempo real. El especialista puede retirar una solicitud mientras siga pendiente; la cancelación conserva el historial.
-- **Aprobaciones del admin:** solicitudes del subárbol con nombre del especialista, justificación, rango y comentario opcional al aprobar o rechazar. El resultado le llega al especialista por Realtime.
+- **Mi horario:** vista semanal de los siete días con turno, tolerancias y aviso de turno nocturno.
+- **Aprobaciones del admin:** solicitudes del subárbol con nombre del especialista, justificación, lugar, centro de costo y comentario opcional al aprobar o rechazar. El resultado le llega al especialista por Realtime.
+- **Altas con código de empresa (admin):** bandeja de `registros_pendientes`; al aprobar se asigna centro de costo y la cuenta queda siempre como empleado.
+- **Jornadas del equipo (admin):** cumplimiento por jornada con horario programado, minutos de llegada tarde o salida temprana, incidencias automáticas y ajuste con motivo obligatorio (historial inmutable).
+- **Horarios del equipo (admin):** alta, edición y borrado del horario semanal por integrante y día ISO, con tolerancias de entrada y salida.
+- **Centros por lugar (admin):** habilitar CECOs adicionales por parque, activarlos o desactivarlos; el principal se conserva y solo se cambia desde el parque.
+- **Reportes (admin):** filtro por estado, totales de horas aprobadas y pendientes, y exportación CSV al portapapeles generada en dominio puro.
+- **Apariencia:** tema claro, oscuro o automático desde el perfil (sin persistencia en disco).
+- **Navegación responsive:** `NavigationRail` en pantallas anchas (extendido desde 1100 px) y `NavigationBar` en móvil.
 - **Perfil:** datos de la cuenta, cambio de contraseña y cierre de sesión.
 - **Invitación de usuarios (admin):** correo, nombre, rol y centro de costo dentro de su subárbol. La pantalla consume la Edge Function `invitar-usuario`, muestra los errores del servidor y calcula el subárbol con la jerarquía dinámica de `centros_costo` (sin datos hardcodeados).
 
@@ -129,6 +137,8 @@ apps/mobile/lib/
     ├── catalogo/    # centros de costo y parques
     ├── jornada/     # marcaje, jornadas y utilidades de geocerca
     ├── solicitudes/ # horas extras del especialista
+    ├── horario/     # horario semanal propio y del equipo
+    ├── equipo/      # altas, jornadas, CECOs por lugar y reportes (admin)
     ├── admin/       # aprobaciones, invitaciones y controladores
     ├── dashboard/   # resumen del empleado
     ├── perfil/      # cuenta y sesión
@@ -256,6 +266,7 @@ Las pruebas de integración levantan un servidor que emula Supabase Auth/PostgRE
 | 2026-11-13 | App Flutter — Clean Architecture por módulos | `dgiron-2025071` | [#55](https://github.com/dgiron-2025071/AppCarrousel/pull/55) | Mergeado a `develop` | `flutter analyze`, 28 pruebas |
 | 2026-11-13 | Backend MT-02 — autorizador, horarios, registro, CECO por lugar, incidencias y reportes | `dgiron-2025071` | [#56](https://github.com/dgiron-2025071/AppCarrousel/pull/56) | Mergeado a `develop` | 330 pruebas OK |
 | 2026-11-16 | `tools/importar-ceco` — CSV a SQL idempotente | `dgiron-2025071` | [#57](https://github.com/dgiron-2025071/AppCarrousel/pull/57) | Mergeado a `develop` | 25 pruebas Node, 337 de base de datos |
+| 2026-11-16 | App Flutter — equipo, horarios, reportes, tema y navegación responsive | `dgiron-2025071` | [#59](https://github.com/dgiron-2025071/AppCarrousel/pull/59) | Mergeado a `develop` | `flutter analyze`, 58 pruebas |
 
 > Nota de proceso: el PR #1 se creó como borrador y GitHub devolvió un error de GraphQL al intentar marcarlo como listo. Se cerró y se recreó como PR #2. El PR #14 no existe.
 

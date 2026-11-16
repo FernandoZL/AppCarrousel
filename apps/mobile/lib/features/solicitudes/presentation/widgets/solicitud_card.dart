@@ -13,25 +13,25 @@ class EstadoChip extends StatelessWidget {
     final colores = Theme.of(context).colorScheme;
     final (Color fondo, Color texto, IconData icono) = switch (estado) {
       EstadoSolicitud.pendiente => (
-          const Color(0xFFFFF3CD),
-          const Color(0xFF8A6100),
-          Icons.hourglass_top_rounded,
-        ),
+        const Color(0xFFFFF3CD),
+        const Color(0xFF8A6100),
+        Icons.hourglass_top_rounded,
+      ),
       EstadoSolicitud.aprobada => (
-          const Color(0xFFD1FAE5),
-          const Color(0xFF065F46),
-          Icons.check_circle_rounded,
-        ),
+        const Color(0xFFD1FAE5),
+        const Color(0xFF065F46),
+        Icons.check_circle_rounded,
+      ),
       EstadoSolicitud.rechazada => (
-          colores.errorContainer,
-          colores.onErrorContainer,
-          Icons.cancel_rounded,
-        ),
+        colores.errorContainer,
+        colores.onErrorContainer,
+        Icons.cancel_rounded,
+      ),
       EstadoSolicitud.cancelada => (
-          colores.surfaceContainerHighest,
-          colores.onSurfaceVariant,
-          Icons.undo_rounded,
-        ),
+        colores.surfaceContainerHighest,
+        colores.onSurfaceVariant,
+        Icons.undo_rounded,
+      ),
     };
 
     return Container(
@@ -75,6 +75,17 @@ class SolicitudCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colores = Theme.of(context).colorScheme;
     final solicitud = detalle.solicitud;
+    final lugar = detalle.parqueNombre;
+    final titulo = mostrarEmpleado
+        ? detalle.empleadoNombre
+        : (lugar ?? detalle.centroNombre);
+    final subtitulo = mostrarEmpleado
+        ? (lugar == null
+              ? detalle.centroNombre
+              : '$lugar · ${detalle.centroNombre}')
+        : (lugar == null
+              ? formatearFecha(solicitud.inicio)
+              : '${detalle.centroNombre} · ${formatearFecha(solicitud.inicio)}');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -112,9 +123,7 @@ class SolicitudCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      mostrarEmpleado
-                          ? detalle.empleadoNombre
-                          : detalle.centroNombre,
+                      titulo,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -122,9 +131,7 @@ class SolicitudCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      mostrarEmpleado
-                          ? detalle.centroNombre
-                          : formatearFecha(solicitud.inicio),
+                      subtitulo,
                       style: TextStyle(
                         fontSize: 12,
                         color: colores.onSurfaceVariant,
@@ -227,16 +234,10 @@ class SolicitudCard extends StatelessWidget {
               solicitud.estado == EstadoSolicitud.cancelada
                   ? 'Retirada ${formatearFechaHora(solicitud.revisadoEn!)}'
                   : 'Revisada ${formatearFechaHora(solicitud.revisadoEn!)}',
-              style: TextStyle(
-                fontSize: 11,
-                color: colores.onSurfaceVariant,
-              ),
+              style: TextStyle(fontSize: 11, color: colores.onSurfaceVariant),
             ),
           ],
-          if (acciones != null) ...[
-            const SizedBox(height: 14),
-            acciones!,
-          ],
+          if (acciones != null) ...[const SizedBox(height: 14), acciones!],
         ],
       ),
     );

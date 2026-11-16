@@ -12,12 +12,14 @@ class SupabaseSolicitudRepository implements SolicitudRepository {
   @override
   Future<void> crear({
     required String centroCostoId,
+    required String parqueId,
     required DateTime inicio,
     required DateTime fin,
     required String justificacion,
   }) async {
     await _client.from('solicitudes_horas_extras').insert({
       'centro_costo_id': centroCostoId,
+      'parque_id': parqueId,
       'inicio': inicio.toUtc().toIso8601String(),
       'fin': fin.toUtc().toIso8601String(),
       'justificacion': justificacion.trim(),
@@ -72,9 +74,9 @@ class SupabaseSolicitudRepository implements SolicitudRepository {
         .stream(primaryKey: ['id'])
         .order('creado_en', ascending: false)
         .map((filas) {
-      final solicitudes = filas.map(solicitudDesdeMapa).toList();
-      solicitudes.sort((a, b) => b.creadoEn.compareTo(a.creadoEn));
-      return solicitudes;
-    });
+          final solicitudes = filas.map(solicitudDesdeMapa).toList();
+          solicitudes.sort((a, b) => b.creadoEn.compareTo(a.creadoEn));
+          return solicitudes;
+        });
   }
 }
