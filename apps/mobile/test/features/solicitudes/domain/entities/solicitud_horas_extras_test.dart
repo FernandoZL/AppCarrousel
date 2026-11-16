@@ -16,6 +16,39 @@ void main() {
   });
 
   group('solicitudDesdeMapa', () {
+    test('conserva el lugar donde se apoyó', () {
+      final solicitud = solicitudDesdeMapa({
+        'id': 's2',
+        'empresa_id': 'e1',
+        'empleado_id': 'u1',
+        'centro_costo_id': 'c1',
+        'parque_id': 'p1',
+        'inicio': '2026-11-10T09:00:00Z',
+        'fin': '2026-11-10T11:00:00Z',
+        'justificacion': 'Apoyo en el parque central durante el evento',
+        'estado': 'pendiente',
+        'creado_en': '2026-11-10T08:00:00Z',
+      });
+
+      expect(solicitud.parqueId, 'p1');
+    });
+
+    test('una solicitud histórica puede no tener lugar', () {
+      final solicitud = solicitudDesdeMapa({
+        'id': 's3',
+        'empresa_id': 'e1',
+        'empleado_id': 'u1',
+        'centro_costo_id': 'c1',
+        'inicio': '2026-11-10T09:00:00Z',
+        'fin': '2026-11-10T11:00:00Z',
+        'justificacion': 'Apoyo en el parque central durante el evento',
+        'estado': 'aprobada',
+        'creado_en': '2026-11-10T08:00:00Z',
+      });
+
+      expect(solicitud.parqueId, isNull);
+    });
+
     test('conserva la cancelación sin revisor', () {
       final solicitud = solicitudDesdeMapa({
         'id': 's1',

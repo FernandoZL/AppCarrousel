@@ -4,6 +4,7 @@ import 'package:carrousel_app/features/solicitudes/domain/entities/solicitud_hor
 abstract class SolicitudRepository {
   Future<void> crear({
     required String centroCostoId,
+    required String parqueId,
     required DateTime inicio,
     required DateTime fin,
     required String justificacion,

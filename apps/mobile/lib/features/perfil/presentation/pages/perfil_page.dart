@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:carrousel_app/core/theme/theme_provider.dart';
 import 'package:carrousel_app/features/auth/domain/entities/perfil.dart';
 import 'package:carrousel_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:carrousel_app/features/admin/presentation/pages/invitar_usuario_page.dart';
@@ -31,9 +32,7 @@ class PerfilPage extends ConsumerWidget {
       context: context,
       builder: (dialogo) => AlertDialog(
         title: const Text('Cerrar sesión'),
-        content: const Text(
-          '¿Quieres salir de Carrousel en este dispositivo?',
-        ),
+        content: const Text('¿Quieres salir de Carrousel en este dispositivo?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogo).pop(false),
@@ -137,9 +136,7 @@ class PerfilPage extends ConsumerWidget {
           const SizedBox(height: 18),
           Text(
             'Administración',
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
+            style: Theme.of(context).textTheme.titleMedium
                 ?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
@@ -160,19 +157,51 @@ class PerfilPage extends ConsumerWidget {
               ),
               trailing: const Icon(Icons.chevron_right_rounded),
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const InvitarUsuarioPage(),
-                ),
+                MaterialPageRoute(builder: (_) => const InvitarUsuarioPage()),
               ),
             ),
           ),
         ],
         const SizedBox(height: 18),
         Text(
+          'Apariencia',
+          style: Theme.of(context).textTheme.titleMedium
+              ?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: colores.surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: colores.outlineVariant, width: 0.7),
+          ),
+          child: ListTile(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+            leading: const Icon(Icons.contrast_rounded),
+            title: const Text('Tema de la app'),
+            subtitle: Text(ref.watch(temaProvider).etiqueta),
+            trailing: DropdownButton<ThemeMode>(
+              value: ref.watch(temaProvider),
+              underline: const SizedBox.shrink(),
+              borderRadius: BorderRadius.circular(14),
+              items: [
+                for (final modo in ThemeMode.values)
+                  DropdownMenuItem(value: modo, child: Text(modo.etiqueta)),
+              ],
+              onChanged: (modo) {
+                if (modo != null) {
+                  ref.read(temaProvider.notifier).state = modo;
+                }
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 18),
+        Text(
           'Seguridad',
-          style: Theme.of(context)
-              .textTheme
-              .titleMedium
+          style: Theme.of(context).textTheme.titleMedium
               ?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 8),
@@ -193,9 +222,7 @@ class PerfilPage extends ConsumerWidget {
             ),
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const ResetPasswordPage(),
-              ),
+              MaterialPageRoute(builder: (_) => const ResetPasswordPage()),
             ),
           ),
         ),

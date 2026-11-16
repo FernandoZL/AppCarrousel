@@ -6,6 +6,7 @@ SolicitudHorasExtras solicitudDesdeMapa(Map<String, dynamic> map) =>
       empresaId: map['empresa_id'] as String,
       empleadoId: map['empleado_id'] as String,
       centroCostoId: map['centro_costo_id'] as String,
+      parqueId: map['parque_id'] as String?,
       inicio: DateTime.parse(map['inicio'] as String).toLocal(),
       fin: DateTime.parse(map['fin'] as String).toLocal(),
       justificacion: map['justificacion'] as String,
