@@ -13,6 +13,7 @@ El núcleo se diseñó desde el inicio para escalar a toda la empresa sin datos 
 | Backend y base de datos | Supabase / PostgreSQL 17, RLS, Realtime | Migraciones `0001`-`0028` implementadas y validadas |
 | Backend serverless | TypeScript sobre Deno (Supabase Edge Functions) | `invitar-usuario` implementada, verificada con `deno check` y 31 pruebas de integración |
 | Tooling | pnpm 12.16.1, Supabase CLI 3.0.0, Git, GitHub CLI | Instalado |
+| Herramientas internas | `db-validation` (PostgreSQL portátil) e `importar-ceco` (CSV → SQL idempotente) | Implementadas y probadas |
 | Mapas y geolocalización | OpenStreetMap + `flutter_map`, GPS nativo (`geolocator`) | Implementado con `InteractiveFlag.none` |
 | Distribución Android | APK directo | `flutter build apk --debug` validado |
 
@@ -63,7 +64,7 @@ No existe autoelevación: `authenticated` solo tiene `SELECT` sobre `public.perf
 - [x] **0021** Revalidación al reasignar: cambiar el especialista o la empresa de una solicitud vuelve a exigir un revisor admin activo y distinto del especialista.
 - [x] **0022** Quitar los claims revoca el perfil: si `app_metadata` queda incompleto se desactiva el perfil existente, y restaurar los claims no reactiva una baja.
 - [x] Arnés de validación con PostgreSQL 17.9 portátil y emulación de roles/`auth` de Supabase.
-- [x] **330 pruebas automáticas OK, 0 fallos** (`pnpm --dir tools/db-validation test`).
+- [x] **337 pruebas automáticas OK, 0 fallos** (`pnpm --dir tools/db-validation test`).
 - [x] Invitación automática de administradores con Edge Function y `service_role` (`supabase/functions/invitar-usuario`).
 - [x] Verificación estática de la Edge Function con `deno check`, `deno lint` y `deno fmt --check`.
 - [x] **31 pruebas de integración de la Edge Function OK, 0 fallos** (`npx -y deno test -A supabase/functions/tests/invitar_usuario_test.ts`), con un Supabase falso local.
@@ -111,9 +112,17 @@ La app arranca siempre en la pantalla de inicio de sesión: **no hay usuarios ni
 - **Login** con correo/contraseña, recuperación de contraseña y **Continuar con Google** (OAuth con PKCE y deep link).
 - **Dashboard del empleado** con horas de hoy, semana y mes, jornada en curso y últimos marcajes; se actualiza con Realtime.
 - **Marcaje de entrada/salida** con `flutter_map` + OpenStreetMap, GPS nativo y selección del parque. El mapa usa `InteractiveFlag.none`; la geocerca se valida en PostgreSQL. Si el parque se desactiva durante el turno, la app conserva ese parque para poder cerrar la jornada y no lo ofrece para nuevas entradas. Si el administrador mueve o redimensiona el parque, el cierre se valida contra la geocerca guardada al entrar.
-- **Horas extras:** rango de horas, parque/centro de costo donde apoyó y justificación. La solicitud nace `pendiente`.
+- **Horas extras:** rango de horas, lugar (parque) y centro de costo habilitado para ese lugar, más la justificación. El formulario elige primero el lugar y luego su CECO; la solicitud nace `pendiente`.
 - **Historial propio** de solicitudes con estado, comentario del administrador y actualización en tiempo real. El especialista puede retirar una solicitud mientras siga pendiente; la cancelación conserva el historial.
-- **Aprobaciones del admin:** solicitudes del subárbol con nombre del especialista, justificación, rango y comentario opcional al aprobar o rechazar. El resultado le llega al especialista por Realtime.
+- **Mi horario:** vista semanal de los siete días con turno, tolerancias y aviso de turno nocturno.
+- **Aprobaciones del admin:** solicitudes del subárbol con nombre del especialista, justificación, lugar, centro de costo y comentario opcional al aprobar o rechazar. El resultado le llega al especialista por Realtime.
+- **Altas con código de empresa (admin):** bandeja de `registros_pendientes`; al aprobar se asigna centro de costo y la cuenta queda siempre como empleado.
+- **Jornadas del equipo (admin):** cumplimiento por jornada con horario programado, minutos de llegada tarde o salida temprana, incidencias automáticas y ajuste con motivo obligatorio (historial inmutable).
+- **Horarios del equipo (admin):** alta, edición y borrado del horario semanal por integrante y día ISO, con tolerancias de entrada y salida.
+- **Centros por lugar (admin):** habilitar CECOs adicionales por parque, activarlos o desactivarlos; el principal se conserva y solo se cambia desde el parque.
+- **Reportes (admin):** filtro por estado, totales de horas aprobadas y pendientes, y exportación CSV al portapapeles generada en dominio puro.
+- **Apariencia:** tema claro, oscuro o automático desde el perfil (sin persistencia en disco).
+- **Navegación responsive:** `NavigationRail` en pantallas anchas (extendido desde 1100 px) y `NavigationBar` en móvil.
 - **Perfil:** datos de la cuenta, cambio de contraseña y cierre de sesión.
 - **Invitación de usuarios (admin):** correo, nombre, rol y centro de costo dentro de su subárbol. La pantalla consume la Edge Function `invitar-usuario`, muestra los errores del servidor y calcula el subárbol con la jerarquía dinámica de `centros_costo` (sin datos hardcodeados).
 
@@ -128,6 +137,8 @@ apps/mobile/lib/
     ├── catalogo/    # centros de costo y parques
     ├── jornada/     # marcaje, jornadas y utilidades de geocerca
     ├── solicitudes/ # horas extras del especialista
+    ├── horario/     # horario semanal propio y del equipo
+    ├── equipo/      # altas, jornadas, CECOs por lugar y reportes (admin)
     ├── admin/       # aprobaciones, invitaciones y controladores
     ├── dashboard/   # resumen del empleado
     ├── perfil/      # cuenta y sesión
@@ -138,6 +149,18 @@ Cada módulo respeta la misma dirección de dependencias: `presentation` → `do
 `data` → `domain`. El dominio no importa Supabase ni Flutter; las entidades son
 puras y los mapeos de filas viven en `data/mappers`. Los providers de Riverpod
 se exponen por módulo y `main.dart` solo inicializa Supabase y monta la app.
+
+### Herramientas
+
+```text
+tools/
+├── db-validation/   # PostgreSQL 17.9 portátil + emulación de Supabase
+└── importar-ceco/   # CSV de centros de costo → SQL idempotente
+```
+
+`tools/importar-ceco` no versiona datos reales: `datos/`, `salida/` y
+`*.local.csv` están ignorados. Solo se publica un CSV ficticio en
+`ejemplo/centros-ejemplo.csv`.
 
 ## Configuración de la app
 
@@ -172,7 +195,15 @@ El arnés vive en `tools/db-validation` y usa `embedded-postgres` para ejecutar 
 pnpm --dir tools/db-validation test
 ```
 
-Cubre jerarquía dinámica y anti-ciclos, aislamiento por empresa, RLS de perfiles/centros/parques/jornadas/solicitudes, no autoelevación, geocerca con tolerancia GPS, una sola jornada abierta, coherencia de la revisión y prohibición de revisar solicitudes propias o ya revisadas. Las migraciones `0007`-`0022` añaden pruebas para el cierre de jornada con parque desactivado, el marcaje fuera del subárbol, los perfiles inactivos, la precisión GPS negativa, la revocación inmediata de lectura para un admin desactivado, el cierre de una jornada olvidada de más de 24 h, el retiro de solicitudes propias, la retención del historial ante el borrado de cuentas, el corte inmediato de acceso para una empresa inactiva, la degradación inmediata de un administrador, el cierre con una geocerca movida o redimensionada durante el turno, la integridad cross-tenant del empleado y del revisor, la revocación inmediata del alcance de un admin movido de subárbol, el rechazo de solicitudes de horas extras solapadas, la firma de la revisión por un administrador activo de la empresa, la revalidación del revisor al reasignar la solicitud y la revocación del perfil al quitar los claims. Además, el arnés falla si una tabla pública nueva no habilita RLS, si `anon` recibe escritura, si una función `SECURITY DEFINER` no fija `search_path` o si alguna función de `public`/`private` queda ejecutable por `PUBLIC`/`anon`. Resultado actual: **229 pruebas OK, 0 fallos**.
+Cubre jerarquía dinámica y anti-ciclos, aislamiento por empresa, RLS de perfiles/centros/parques/jornadas/solicitudes, no autoelevación, geocerca con tolerancia GPS, una sola jornada abierta, coherencia de la revisión y prohibición de revisar solicitudes propias o ya revisadas. Las migraciones `0007`-`0022` añaden pruebas para el cierre de jornada con parque desactivado, el marcaje fuera del subárbol, los perfiles inactivos, la precisión GPS negativa, la revocación inmediata de lectura para un admin desactivado, el cierre de una jornada olvidada de más de 24 h, el retiro de solicitudes propias, la retención del historial ante el borrado de cuentas, el corte inmediato de acceso para una empresa inactiva, la degradación inmediata de un administrador, el cierre con una geocerca movida o redimensionada durante el turno, la integridad cross-tenant del empleado y del revisor, la revocación inmediata del alcance de un admin movido de subárbol, el rechazo de solicitudes de horas extras solapadas, la firma de la revisión por un administrador activo de la empresa, la revalidación del revisor al reasignar la solicitud y la revocación del perfil al quitar los claims. Las migraciones `0023`-`0028` suman puestos y autorizador jerárquico, horarios con zona horaria y umbral GPS, registro por código de empresa, CECOs por lugar, incidencias y ajustes inmutables, y reportes con RLS. Además, el arnés falla si una tabla pública nueva no habilita RLS, si `anon` recibe escritura, si una función `SECURITY DEFINER` no fija `search_path` o si alguna función de `public`/`private` queda ejecutable por `PUBLIC`/`anon`. Resultado actual: **337 pruebas OK, 0 fallos**.
+
+El SQL del importador de centros de costo se ejecuta en el mismo PostgreSQL real:
+
+```bash
+pnpm --dir tools/importar-ceco test
+```
+
+Cubre normalización de códigos, parser CSV, duplicados, ciclos, padres faltantes y el contrato idempotente del SQL; el arnés de base de datos comprueba además creación, jerarquía, renombrado, repetición sin duplicados y rollback completo. Ver [`tools/importar-ceco/README.md`](tools/importar-ceco/README.md).
 
 La Edge Function se verifica sin desplegarla:
 
@@ -233,6 +264,10 @@ Las pruebas de integración levantan un servidor que emula Supabase Auth/PostgRE
 | 2026-11-12 | Arnés — invariantes de RLS, `anon` y `SECURITY DEFINER` | `dgiron-2025071` | [#52](https://github.com/dgiron-2025071/AppCarrousel/pull/52) | Mergeado a `develop` | 228 pruebas OK |
 | 2026-11-12 | Arnés — funciones no ejecutables por `PUBLIC`/`anon` | `dgiron-2025071` | [#53](https://github.com/dgiron-2025071/AppCarrousel/pull/53) | Mergeado a `develop` | 229 pruebas OK |
 | 2026-11-13 | App Flutter — Clean Architecture por módulos | `dgiron-2025071` | [#55](https://github.com/dgiron-2025071/AppCarrousel/pull/55) | Mergeado a `develop` | `flutter analyze`, 28 pruebas |
+| 2026-11-13 | Backend MT-02 — autorizador, horarios, registro, CECO por lugar, incidencias y reportes | `dgiron-2025071` | [#56](https://github.com/dgiron-2025071/AppCarrousel/pull/56) | Mergeado a `develop` | 330 pruebas OK |
+| 2026-11-16 | `tools/importar-ceco` — CSV a SQL idempotente | `dgiron-2025071` | [#57](https://github.com/dgiron-2025071/AppCarrousel/pull/57) | Mergeado a `develop` | 25 pruebas Node, 337 de base de datos |
+| 2026-11-16 | App Flutter — equipo, horarios, reportes, tema y navegación responsive | `dgiron-2025071` | [#59](https://github.com/dgiron-2025071/AppCarrousel/pull/59) | Mergeado a `develop` | `flutter analyze`, 58 pruebas |
+| 2026-11-16 | Release MT-02 — importador de CECO y app de jornadas | `develop` | [#60](https://github.com/dgiron-2025071/AppCarrousel/pull/60) | Mergeado a `main` | `flutter analyze`, 58 pruebas, 25 Node |
 
 > Nota de proceso: el PR #1 se creó como borrador y GitHub devolvió un error de GraphQL al intentar marcarlo como listo. Se cerró y se recreó como PR #2. El PR #14 no existe.
 

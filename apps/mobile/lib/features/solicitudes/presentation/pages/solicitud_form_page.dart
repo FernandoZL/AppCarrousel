@@ -3,16 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:carrousel_app/core/errors/error_messages.dart';
 import 'package:carrousel_app/core/utils/duraciones.dart';
-import 'package:carrousel_app/features/catalogo/domain/entities/centro_costo.dart';
+import 'package:carrousel_app/features/catalogo/domain/entities/lugar_catalogo.dart';
+import 'package:carrousel_app/features/catalogo/domain/utils/lugares.dart';
+import 'package:carrousel_app/features/auth/domain/entities/perfil.dart';
 import 'package:carrousel_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:carrousel_app/features/catalogo/presentation/providers/catalogo_providers.dart';
 import 'package:carrousel_app/features/solicitudes/presentation/providers/solicitud_providers.dart';
 
 /// Formulario de horas extras.
 ///
-/// El especialista indica el rango, el centro/parque donde apoyó y la
-/// justificación. La solicitud nace en estado `pendiente`; el admin de su
-/// centro la revisa y el resultado le llega por Realtime.
+/// El especialista elige primero el lugar donde apoyó y luego el centro de
+/// costo habilitado para ese lugar. La solicitud nace en estado `pendiente`; el
+/// admin de su centro la revisa y el resultado le llega por Realtime.
 class SolicitudFormPage extends ConsumerStatefulWidget {
   const SolicitudFormPage({super.key});
 
@@ -26,6 +28,7 @@ class _SolicitudFormPageState extends ConsumerState<SolicitudFormPage> {
 
   late DateTime _inicio;
   late DateTime _fin;
+  String? _parqueId;
   String? _centroId;
   bool _enviando = false;
 
@@ -68,13 +71,7 @@ class _SolicitudFormPageState extends ConsumerState<SolicitudFormPage> {
     );
     if (hora == null) return null;
 
-    return DateTime(
-      fecha.year,
-      fecha.month,
-      fecha.day,
-      hora.hour,
-      hora.minute,
-    );
+    return DateTime(fecha.year, fecha.month, fecha.day, hora.hour, hora.minute);
   }
 
   Future<void> _cambiarInicio() async {
@@ -106,10 +103,10 @@ class _SolicitudFormPageState extends ConsumerState<SolicitudFormPage> {
     FocusScope.of(context).unfocus();
     if (!_formKey.currentState!.validate()) return;
 
-    if (_centroId == null) {
+    if (_parqueId == null || _centroId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Selecciona el parque o centro donde apoyaste.'),
+          content: Text('Selecciona el lugar y el centro de costo.'),
         ),
       );
       return;
@@ -135,6 +132,7 @@ class _SolicitudFormPageState extends ConsumerState<SolicitudFormPage> {
     try {
       await ref.read(crearSolicitudProvider)(
         centroCostoId: _centroId!,
+        parqueId: _parqueId!,
         inicio: _inicio,
         fin: _fin,
         justificacion: _justificacion.text,
@@ -153,20 +151,16 @@ class _SolicitudFormPageState extends ConsumerState<SolicitudFormPage> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _enviando = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(mensajeDeError(error))),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(mensajeDeError(error))));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final colores = Theme.of(context).colorScheme;
-    final perfil = ref.watch(perfilProvider);
-    final centrosAsync = ref.watch(centrosProvider);
-    final centros = centrosAsync.valueOrNull ?? const <CentroCosto>[];
-
-    _centroId ??= perfil.valueOrNull?.centroCostoId;
+    final perfil = ref.watch(perfilProvider).valueOrNull;
+    final lugaresAsync = ref.watch(lugaresProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Nueva solicitud')),
@@ -177,16 +171,14 @@ class _SolicitudFormPageState extends ConsumerState<SolicitudFormPage> {
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
             children: [
               Text(
-                'Registra el apoyo en otro parque',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
+                'Registra el apoyo en otro lugar',
+                style: Theme.of(context).textTheme.titleLarge
                     ?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 6),
               Text(
-                'Indica el rango de horas, el centro donde apoyaste y el motivo. '
-                'Tu administrador recibirá la solicitud en tiempo real.',
+                'Indica el rango de horas, el lugar y el centro de costo donde '
+                'apoyaste. Tu administrador recibirá la solicitud en tiempo real.',
                 style: TextStyle(color: colores.onSurfaceVariant),
               ),
               const SizedBox(height: 22),
@@ -225,7 +217,11 @@ class _SolicitudFormPageState extends ConsumerState<SolicitudFormPage> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.schedule_rounded, size: 18, color: colores.primary),
+                    Icon(
+                      Icons.schedule_rounded,
+                      size: 18,
+                      color: colores.primary,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       _duracion.isNegative
@@ -237,36 +233,17 @@ class _SolicitudFormPageState extends ConsumerState<SolicitudFormPage> {
                 ),
               ),
               const SizedBox(height: 20),
-              if (centrosAsync.isLoading)
-                const Padding(
+              lugaresAsync.when(
+                loading: () => const Padding(
                   padding: EdgeInsets.symmetric(vertical: 12),
                   child: LinearProgressIndicator(),
-                )
-              else if (centrosAsync.hasError)
-                _MensajeEnLinea(
-                  mensaje: 'No se pudieron cargar los centros de costo.',
-                  onReintentar: () => ref.invalidate(centrosProvider),
-                )
-              else
-                DropdownButtonFormField<String>(
-                  initialValue: _centroId,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Parque / centro de costo donde apoyaste',
-                    prefixIcon: Icon(Icons.attractions_outlined),
-                  ),
-                  items: [
-                    for (final centro in centros)
-                      DropdownMenuItem(
-                        value: centro.id,
-                        child: Text(centro.nombre),
-                      ),
-                  ],
-                  onChanged: (valor) => setState(() => _centroId = valor),
-                  validator: (valor) => valor == null
-                      ? 'Selecciona el centro donde apoyaste.'
-                      : null,
                 ),
+                error: (error, _) => _MensajeEnLinea(
+                  mensaje: 'No se pudieron cargar los lugares y centros.',
+                  onReintentar: () => ref.invalidate(lugaresProvider),
+                ),
+                data: (lugares) => _selectores(context, lugares, perfil),
+              ),
               const SizedBox(height: 18),
               TextFormField(
                 controller: _justificacion,
@@ -277,8 +254,7 @@ class _SolicitudFormPageState extends ConsumerState<SolicitudFormPage> {
                 decoration: const InputDecoration(
                   labelText: 'Justificación',
                   alignLabelWithHint: true,
-                  hintText:
-                      'Explica por qué realizaste estas horas extras y qué apoyo brindaste.',
+                  hintText: 'Explica por qué realizaste estas horas extras y qué apoyo brindaste.',
                 ),
                 validator: (valor) {
                   final texto = valor?.trim() ?? '';
@@ -336,6 +312,106 @@ class _SolicitudFormPageState extends ConsumerState<SolicitudFormPage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _selectores(
+    BuildContext context,
+    List<LugarCatalogo> lugares,
+    Perfil? perfil,
+  ) {
+    if (lugares.isEmpty) {
+      return const _MensajeEnLinea(
+        mensaje:
+            'Tu empresa aún no tiene lugares con centros de costo '
+            'habilitados. Pide al administrador que configure un lugar.',
+      );
+    }
+
+    final sugerido = lugarSugerido(lugares, perfil?.centroCostoId);
+    var lugar = sugerido!;
+    for (final candidato in lugares) {
+      if (candidato.parque.id == _parqueId) {
+        lugar = candidato;
+        break;
+      }
+    }
+    _parqueId = lugar.parque.id;
+
+    if (_centroId == null ||
+        !lugar.centros.any((centro) => centro.id == _centroId)) {
+      _centroId = centroSugerido(lugar, perfil?.centroCostoId);
+    }
+
+    final centroSeleccionado = _centroId;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DropdownButtonFormField<String>(
+          initialValue: lugar.parque.id,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            labelText: 'Lugar donde apoyaste',
+            prefixIcon: Icon(Icons.place_outlined),
+          ),
+          items: [
+            for (final opcion in lugares)
+              DropdownMenuItem(
+                value: opcion.parque.id,
+                child: Text(
+                  opcion.parque.codigo.isEmpty
+                      ? opcion.parque.nombre
+                      : '${opcion.parque.nombre} (${opcion.parque.codigo})',
+                ),
+              ),
+          ],
+          onChanged: (valor) {
+            if (valor == null) return;
+            final nuevo = lugares.firstWhere(
+              (opcion) => opcion.parque.id == valor,
+            );
+            setState(() {
+              _parqueId = valor;
+              _centroId = centroSugerido(nuevo, perfil?.centroCostoId);
+            });
+          },
+          validator: (valor) =>
+              valor == null ? 'Selecciona el lugar donde apoyaste.' : null,
+        ),
+        const SizedBox(height: 14),
+        DropdownButtonFormField<String>(
+          key: ValueKey('ceco-${lugar.parque.id}'),
+          initialValue: centroSeleccionado,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            labelText: 'Centro de costo',
+            prefixIcon: Icon(Icons.account_tree_outlined),
+          ),
+          items: [
+            for (final centro in lugar.centros)
+              DropdownMenuItem(
+                value: centro.id,
+                child: Text(
+                  centro.id == lugar.centroPrincipalId
+                      ? '${centro.nombre} · Principal'
+                      : centro.nombre,
+                ),
+              ),
+          ],
+          onChanged: (valor) => setState(() => _centroId = valor),
+          validator: (valor) =>
+              valor == null ? 'Selecciona el centro de costo del apoyo.' : null,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Solo se muestran los centros habilitados para el lugar seleccionado.',
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -407,10 +483,10 @@ class _TarjetaSeleccion extends StatelessWidget {
 }
 
 class _MensajeEnLinea extends StatelessWidget {
-  const _MensajeEnLinea({required this.mensaje, required this.onReintentar});
+  const _MensajeEnLinea({required this.mensaje, this.onReintentar});
 
   final String mensaje;
-  final VoidCallback onReintentar;
+  final VoidCallback? onReintentar;
 
   @override
   Widget build(BuildContext context) {
@@ -431,10 +507,11 @@ class _MensajeEnLinea extends StatelessWidget {
               style: TextStyle(color: colores.onErrorContainer),
             ),
           ),
-          TextButton(
-            onPressed: onReintentar,
-            child: const Text('Reintentar'),
-          ),
+          if (onReintentar != null)
+            TextButton(
+              onPressed: onReintentar,
+              child: const Text('Reintentar'),
+            ),
         ],
       ),
     );

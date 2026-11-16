@@ -28,6 +28,7 @@ class SolicitudHorasExtras {
     required this.justificacion,
     required this.estado,
     required this.creadoEn,
+    this.parqueId,
     this.comentarioAdmin,
     this.revisadoPor,
     this.revisadoEn,
@@ -37,6 +38,9 @@ class SolicitudHorasExtras {
   final String empresaId;
   final String empleadoId;
   final String centroCostoId;
+
+  /// Lugar donde se apoyó. Es nulo en solicitudes históricas.
+  final String? parqueId;
   final DateTime inicio;
   final DateTime fin;
   final String justificacion;
@@ -55,9 +59,11 @@ class SolicitudDetalle {
     required this.solicitud,
     required this.empleadoNombre,
     required this.centroNombre,
+    this.parqueNombre,
   });
 
   final SolicitudHorasExtras solicitud;
   final String empleadoNombre;
   final String centroNombre;
+  final String? parqueNombre;
 }

@@ -1,7 +1,10 @@
 import 'package:carrousel_app/features/catalogo/data/mappers/catalogo_mapper.dart';
 import 'package:carrousel_app/features/catalogo/domain/entities/centro_costo.dart';
 import 'package:carrousel_app/features/catalogo/domain/entities/parque.dart';
+import 'package:carrousel_app/features/catalogo/domain/entities/parque_centro.dart';
+import 'package:carrousel_app/features/catalogo/domain/entities/lugar_catalogo.dart';
 import 'package:carrousel_app/features/catalogo/domain/repositories/catalogo_repository.dart';
+import 'package:carrousel_app/features/catalogo/domain/utils/lugares.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SupabaseCatalogoRepository implements CatalogoRepository {
@@ -27,6 +30,27 @@ class SupabaseCatalogoRepository implements CatalogoRepository {
         )
         .order('nombre');
     return filas.map(parqueDesdeMapa).toList(growable: false);
+  }
+
+  @override
+  Future<List<ParqueCentro>> parquesCentros() async {
+    final filas = await _client
+        .from('parques_centros')
+        .select('id, empresa_id, parque_id, centro_costo_id, principal, activo')
+        .order('principal', ascending: false);
+    return filas.map(parqueCentroDesdeMapa).toList(growable: false);
+  }
+
+  @override
+  Future<List<LugarCatalogo>> lugares() async {
+    final listaParques = await parques();
+    final listaCentros = await centros();
+    final enlaces = await parquesCentros();
+    return construirLugares(
+      parques: listaParques,
+      centros: listaCentros,
+      enlaces: enlaces,
+    );
   }
 
   @override

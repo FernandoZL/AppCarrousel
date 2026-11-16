@@ -5,16 +5,23 @@ class AppTheme {
 
   static const _semilla = Color(0xFF0F766E);
 
-  static ThemeData get light {
+  static ThemeData get light => _construir(Brightness.light);
+
+  static ThemeData get dark => _construir(Brightness.dark);
+
+  static ThemeData _construir(Brightness brillo) {
     final esquema = ColorScheme.fromSeed(
       seedColor: _semilla,
-      brightness: Brightness.light,
+      brightness: brillo,
     );
+    final oscuro = brillo == Brightness.dark;
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: esquema,
-      scaffoldBackgroundColor: const Color(0xFFF7F8F7),
+      scaffoldBackgroundColor: oscuro
+          ? const Color(0xFF0D1413)
+          : const Color(0xFFF7F8F7),
       appBarTheme: AppBarTheme(
         centerTitle: false,
         elevation: 0,
@@ -26,6 +33,16 @@ class AppTheme {
           fontSize: 22,
           fontWeight: FontWeight.w700,
         ),
+      ),
+      navigationRailTheme: NavigationRailThemeData(
+        backgroundColor: esquema.surface,
+        indicatorColor: esquema.primaryContainer,
+        selectedIconTheme: IconThemeData(color: esquema.onPrimaryContainer),
+        selectedLabelTextStyle: TextStyle(
+          color: esquema.onPrimaryContainer,
+          fontWeight: FontWeight.w700,
+        ),
+        unselectedLabelTextStyle: TextStyle(color: esquema.onSurfaceVariant),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -46,8 +63,10 @@ class AppTheme {
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: esquema.error, width: 1.2),
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(

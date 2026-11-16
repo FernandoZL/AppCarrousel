@@ -8,16 +8,17 @@ class CrearSolicitud {
 
   Future<void> call({
     required String centroCostoId,
+    required String parqueId,
     required DateTime inicio,
     required DateTime fin,
     required String justificacion,
-  }) =>
-      _repo.crear(
-        centroCostoId: centroCostoId,
-        inicio: inicio,
-        fin: fin,
-        justificacion: justificacion,
-      );
+  }) => _repo.crear(
+    centroCostoId: centroCostoId,
+    parqueId: parqueId,
+    inicio: inicio,
+    fin: fin,
+    justificacion: justificacion,
+  );
 }
 
 class RevisarSolicitud {
@@ -29,12 +30,11 @@ class RevisarSolicitud {
     required String solicitudId,
     required EstadoSolicitud decision,
     String? comentario,
-  }) =>
-      _repo.revisar(
-        solicitudId: solicitudId,
-        decision: decision,
-        comentario: comentario,
-      );
+  }) => _repo.revisar(
+    solicitudId: solicitudId,
+    decision: decision,
+    comentario: comentario,
+  );
 }
 
 class CancelarSolicitud {
