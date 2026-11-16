@@ -32,7 +32,13 @@ class SupabaseAuthRepository implements AuthRepository {
   SesionUsuario? get sesionActual {
     final usuario = _client.auth.currentUser;
     if (usuario == null) return null;
-    return SesionUsuario(id: usuario.id, email: usuario.email ?? '');
+    final nombre = (usuario.userMetadata?['nombre_completo'] as String?)
+        ?.trim();
+    return SesionUsuario(
+      id: usuario.id,
+      email: usuario.email ?? '',
+      nombre: nombre == null || nombre.isEmpty ? null : nombre,
+    );
   }
 
   @override
@@ -44,6 +50,23 @@ class SupabaseAuthRepository implements AuthRepository {
       email: email.trim(),
       password: password,
     );
+  }
+
+  @override
+  Future<ResultadoRegistroCuenta> registrarCuenta({
+    required String email,
+    required String password,
+    required String nombreCompleto,
+  }) async {
+    final respuesta = await _client.auth.signUp(
+      email: email.trim(),
+      password: password,
+      data: {'nombre_completo': nombreCompleto.trim()},
+      emailRedirectTo: Env.oauthRedirect,
+    );
+    return respuesta.session == null
+        ? ResultadoRegistroCuenta.confirmarCorreo
+        : ResultadoRegistroCuenta.sesionIniciada;
   }
 
   @override
@@ -74,6 +97,11 @@ class SupabaseAuthRepository implements AuthRepository {
 
   @override
   Future<void> cerrarSesion() => _client.auth.signOut();
+
+  @override
+  Future<void> refrescarSesion() async {
+    await _client.auth.refreshSession();
+  }
 
   @override
   Future<Perfil?> obtenerPerfil(String userId) async {

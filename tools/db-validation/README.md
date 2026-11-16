@@ -128,10 +128,11 @@ dejan datos ni privilegios modificados.
   y umbral de precisión GPS por empresa (mínimo 10 m); `fecha_local()` y
   `horario_del_dia()` usan esa zona.
 - Registro por código: `solicitar_registro` valida el código de empresa, exige
-  que el usuario aún no tenga perfil, no acumula pendientes y permite reintentar
-  tras un rechazo; `aprobar_registro` siempre crea un `empleado`, fija centro y
-  puesto dentro del alcance y actualiza los claims; `rechazar_registro` exige un
-  motivo. El cliente no inserta en `registros_pendientes`.
+  que el usuario aún no tenga perfil, sincroniza el nombre declarado a
+  `user_metadata`, no acumula pendientes y permite reintentar tras un rechazo;
+  `aprobar_registro` siempre crea un `empleado`, fija centro y puesto dentro del
+  alcance y actualiza los claims; `rechazar_registro` exige un motivo. El cliente
+  no inserta en `registros_pendientes`.
 - CECO por lugar: `parques_centros` mantiene exactamente un principal por
   parque, sincronizado con `parques.centro_costo_id`; mover el parque desactiva
   el principal anterior y activa el nuevo conservando el historial. La solicitud
@@ -160,7 +161,7 @@ dejan datos ni privilegios modificados.
   las vistas de reporte.
 - Auditoría: `actualizado_en` y `actualizado_por`.
 
-Resultado actual: **337 pruebas OK, 0 FAIL**.
+Resultado actual: **338 pruebas OK, 0 FAIL**.
 
 ## Límites
 

@@ -41,6 +41,27 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
     });
   }
 
+  /// Devuelve el resultado del alta, o null si hubo un error.
+  Future<ResultadoRegistroCuenta?> registrarCuenta({
+    required String email,
+    required String password,
+    required String nombreCompleto,
+  }) async {
+    state = const AsyncLoading();
+    try {
+      final resultado = await RegistrarCuenta(_auth)(
+        email: email,
+        password: password,
+        nombreCompleto: nombreCompleto,
+      );
+      state = const AsyncData(null);
+      return resultado;
+    } catch (error, stack) {
+      state = AsyncError(mensajeDeError(error), stack);
+      return null;
+    }
+  }
+
   Future<bool> enviarRecuperacion(String email) {
     return _ejecutar(() => EnviarRecuperacion(_auth)(email));
   }
@@ -51,6 +72,8 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
 
   Future<bool> cerrarSesion() => _ejecutar(CerrarSesion(_auth).call);
 
+  Future<bool> refrescarSesion() => _ejecutar(RefrescarSesion(_auth).call);
+
   void limpiarError() {
     if (state.hasError) state = const AsyncData(null);
   }
@@ -58,5 +81,5 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
 
 final authControllerProvider =
     StateNotifierProvider<AuthController, AsyncValue<void>>((ref) {
-  return AuthController(ref.watch(authRepositoryProvider));
-});
+      return AuthController(ref.watch(authRepositoryProvider));
+    });
