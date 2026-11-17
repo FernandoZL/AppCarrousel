@@ -58,6 +58,12 @@ String mensajeDeError(Object error) {
         if (texto.contains('nombre completo')) {
           return 'El nombre completo debe tener entre 1 y 160 caracteres.';
         }
+        if (texto.contains('zona horaria')) {
+          return 'La zona horaria no es válida. Usa un nombre IANA, por ejemplo America/Guatemala.';
+        }
+        if (texto.contains('gps_precision')) {
+          return 'La precisión GPS debe estar entre 10 y 1000 metros.';
+        }
         return 'Los datos no cumplen las reglas de la solicitud.';
       case '23505':
         final texto = error.message.toLowerCase();
@@ -67,12 +73,18 @@ String mensajeDeError(Object error) {
         if (texto.contains('solicitud de alta')) {
           return 'Ya tienes una solicitud de alta pendiente.';
         }
+        if (texto.contains('puestos_empresa_codigo_key')) {
+          return 'Ya existe un puesto con ese código en tu empresa.';
+        }
         return 'Ese registro ya existe.';
       case '23503':
         final texto = error.message.toLowerCase();
         if (texto.contains('código de empresa') ||
             texto.contains('codigo de empresa')) {
           return 'El código de empresa no existe o la empresa está suspendida.';
+        }
+        if (texto.contains('puesto')) {
+          return 'No puedes eliminar un puesto con empleados o altas asociadas. Desactívalo en su lugar.';
         }
         return 'El centro o parque seleccionado ya no está disponible.';
       case '42501':

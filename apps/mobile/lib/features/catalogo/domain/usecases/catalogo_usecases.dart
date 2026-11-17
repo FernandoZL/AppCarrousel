@@ -2,6 +2,7 @@ import 'package:carrousel_app/features/catalogo/domain/entities/centro_costo.dar
 import 'package:carrousel_app/features/catalogo/domain/entities/lugar_catalogo.dart';
 import 'package:carrousel_app/features/catalogo/domain/entities/parque.dart';
 import 'package:carrousel_app/features/catalogo/domain/entities/parque_centro.dart';
+import 'package:carrousel_app/features/catalogo/domain/entities/puesto.dart';
 import 'package:carrousel_app/features/catalogo/domain/repositories/catalogo_repository.dart';
 
 class ListarCentros {
@@ -42,4 +43,58 @@ class ListarLugares {
   final CatalogoRepository _repo;
 
   Future<List<LugarCatalogo>> call() => _repo.lugares();
+}
+
+class ListarPuestos {
+  const ListarPuestos(this._repo);
+
+  final CatalogoRepository _repo;
+
+  Future<List<Puesto>> call() => _repo.puestos();
+}
+
+class CrearPuesto {
+  const CrearPuesto(this._repo);
+
+  final CatalogoRepository _repo;
+
+  Future<void> call({
+    required String empresaId,
+    required String codigo,
+    required String nombre,
+    String? descripcion,
+  }) => _repo.crearPuesto(
+    empresaId: empresaId,
+    codigo: codigo,
+    nombre: nombre,
+    descripcion: descripcion,
+  );
+}
+
+class ActualizarPuesto {
+  const ActualizarPuesto(this._repo);
+
+  final CatalogoRepository _repo;
+
+  Future<void> call({
+    required String id,
+    required String codigo,
+    required String nombre,
+    String? descripcion,
+    required bool activo,
+  }) => _repo.actualizarPuesto(
+    id: id,
+    codigo: codigo,
+    nombre: nombre,
+    descripcion: descripcion,
+    activo: activo,
+  );
+}
+
+class EliminarPuesto {
+  const EliminarPuesto(this._repo);
+
+  final CatalogoRepository _repo;
+
+  Future<void> call(String id) => _repo.eliminarPuesto(id);
 }

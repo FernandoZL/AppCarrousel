@@ -118,10 +118,12 @@ La app arranca siempre en la pantalla de inicio de sesión: **no hay usuarios ni
 - **Historial propio** de solicitudes con estado, comentario del administrador y actualización en tiempo real. El especialista puede retirar una solicitud mientras siga pendiente; la cancelación conserva el historial.
 - **Mi horario:** vista semanal de los siete días con turno, tolerancias y aviso de turno nocturno.
 - **Aprobaciones del admin:** solicitudes del subárbol con nombre del especialista, justificación, lugar, centro de costo y comentario opcional al aprobar o rechazar. El resultado le llega al especialista por Realtime.
-- **Altas con código de empresa (admin):** bandeja de `registros_pendientes`; al aprobar se asigna centro de costo y la cuenta queda siempre como empleado.
+- **Altas con código de empresa (admin):** bandeja de `registros_pendientes`; al aprobar se asigna centro de costo y, opcionalmente, un puesto activo. La cuenta queda siempre como empleado.
 - **Jornadas del equipo (admin):** cumplimiento por jornada con horario programado, minutos de llegada tarde o salida temprana, incidencias automáticas y ajuste con motivo obligatorio (historial inmutable).
 - **Horarios del equipo (admin):** alta, edición y borrado del horario semanal por integrante y día ISO, con tolerancias de entrada y salida.
 - **Centros por lugar (admin):** habilitar CECOs adicionales por parque, activarlos o desactivarlos; el principal se conserva y solo se cambia desde el parque.
+- **Puestos (admin):** catálogo por empresa con código único, nombre, descripción y estado. El administrador crea, edita, activa/desactiva y elimina puestos; los inactivos dejan de ofrecerse al aprobar altas.
+- **Configuración de la empresa (admin):** zona horaria IANA (validada por PostgreSQL) y umbral de precisión GPS (10–1000 m) que define cuándo un marcaje se reporta como impreciso.
 - **Reportes (admin):** filtro por estado, totales de horas aprobadas y pendientes, y exportación CSV al portapapeles generada en dominio puro.
 - **Apariencia:** tema claro, oscuro o automático desde el perfil (sin persistencia en disco).
 - **Navegación responsive:** `NavigationRail` en pantallas anchas (extendido desde 1100 px) y `NavigationBar` en móvil.
@@ -137,11 +139,12 @@ apps/mobile/lib/
 └── features/
     ├── auth/        # domain (entidades, contratos, casos de uso) / data / presentation
     ├── registro/    # alta propia con código de empresa
-    ├── catalogo/    # centros de costo y parques
+    ├── catalogo/    # centros de costo, parques y puestos
     ├── jornada/     # marcaje, jornadas y utilidades de geocerca
     ├── solicitudes/ # horas extras del especialista
     ├── horario/     # horario semanal propio y del equipo
-    ├── equipo/      # altas, jornadas, CECOs por lugar y reportes (admin)
+    ├── equipo/      # altas, jornadas, horarios, CECOs por lugar, puestos y reportes (admin)
+    ├── configuracion/ # zona horaria y umbral de GPS de la empresa (admin)
     ├── admin/       # aprobaciones, invitaciones y controladores
     ├── dashboard/   # resumen del empleado
     ├── perfil/      # cuenta y sesión
@@ -273,6 +276,7 @@ Las pruebas de integración levantan un servidor que emula Supabase Auth/PostgRE
 | 2026-11-16 | Release MT-02 - importador de CECO y app de jornadas | `develop` | [#60](https://github.com/dgiron-2025071/AppCarrousel/pull/60) | Mergeado a `main` | `flutter analyze`, 58 pruebas, 25 Node |
 | 2026-11-16 | App Flutter - registro propio con código de empresa y nombre visible | `dgiron-2025071` | [#61](https://github.com/dgiron-2025071/AppCarrousel/pull/61) | Mergeado a `develop` | `flutter analyze`, 65 pruebas, 338 DB |
 | 2026-11-16 | Release MT-02 - registro propio con código de empresa | `develop` | [#62](https://github.com/dgiron-2025071/AppCarrousel/pull/62) | Mergeado a `main` | `flutter analyze`, 65 pruebas, 338 DB |
+| 2026-11-17 | App Flutter - puestos y configuración de empresa | `dgiron-2025071` | [#63](https://github.com/dgiron-2025071/AppCarrousel/pull/63) | En revisión | `flutter analyze`, 74 pruebas |
 
 > Nota de proceso: el PR #1 se creó como borrador y GitHub devolvió un error de GraphQL al intentar marcarlo como listo. Se cerró y se recreó como PR #2. El PR #14 no existe.
 
