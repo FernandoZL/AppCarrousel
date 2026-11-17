@@ -114,10 +114,7 @@ class _MarcajePageState extends ConsumerState<MarcajePage> {
     });
   }
 
-  Parque? _parqueObjetivo(
-    List<Parque> visibles,
-    Jornada? abierta,
-  ) {
+  Parque? _parqueObjetivo(List<Parque> visibles, Jornada? abierta) {
     if (visibles.isEmpty) return null;
 
     // Al cerrar la jornada se usa siempre el parque con el que se abrió,
@@ -163,7 +160,7 @@ class _MarcajePageState extends ConsumerState<MarcajePage> {
       return;
     }
 
-    if (!_dentroDeGeocerca(parque, posicion)) {
+    if (!_dentroDeGeocerca(parque, posicion, abierta: abierta)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -209,20 +206,37 @@ class _MarcajePageState extends ConsumerState<MarcajePage> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _enviando = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(mensajeDeError(error))),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(mensajeDeError(error))));
     }
   }
 
-  bool _dentroDeGeocerca(Parque parque, Position posicion) {
-    final distancia = distanciaMetros(
+  bool _dentroDeGeocerca(Parque parque, Position posicion, {Jornada? abierta}) {
+    final tolerancia = toleranciaGps(posicion.accuracy);
+    final distanciaActual = distanciaMetros(
       posicion.latitude,
       posicion.longitude,
       parque.latitud,
       parque.longitud,
     );
-    return distancia <= parque.radioMetros + toleranciaGps(posicion.accuracy);
+    if (distanciaActual <= parque.radioMetros + tolerancia) return true;
+
+    // Al cerrar, la base acepta también la geocerca congelada al entrar. El
+    // cliente aplica la misma regla para no bloquear una salida válida si el
+    // parque se movió o se redimensionó durante el turno.
+    final lat = abierta?.entradaParqueLat;
+    final lon = abierta?.entradaParqueLon;
+    final radio = abierta?.entradaParqueRadioMetros;
+    if (abierta == null || lat == null || lon == null || radio == null) {
+      return false;
+    }
+    final distanciaFoto = distanciaMetros(
+      posicion.latitude,
+      posicion.longitude,
+      lat,
+      lon,
+    );
+    return distanciaFoto <= radio + tolerancia;
   }
 
   @override
@@ -253,16 +267,14 @@ class _MarcajePageState extends ConsumerState<MarcajePage> {
             return const EstadoVacio(
               icono: Icons.location_off_outlined,
               titulo: 'Sin parques configurados',
-              mensaje:
-                  'Tu empresa todavía no tiene parques con geocerca. Pide al administrador que los configure.',
+              mensaje: 'Tu empresa todavía no tiene parques con geocerca. Pide al administrador que los configure.',
             );
           }
           if (abierta == null && parquesParaEntrada(parques).isEmpty) {
             return const EstadoVacio(
               icono: Icons.location_off_outlined,
               titulo: 'Sin parques activos',
-              mensaje:
-                  'Todos los parques de tu alcance están desactivados. Pide al administrador que habilite uno para marcar tu entrada.',
+              mensaje: 'Todos los parques de tu alcance están desactivados. Pide al administrador que habilite uno para marcar tu entrada.',
             );
           }
           return _contenido(context, parques, abierta);
@@ -281,9 +293,10 @@ class _MarcajePageState extends ConsumerState<MarcajePage> {
     final visibles = parquesVisibles(todos, abierta);
     final parque = _parqueObjetivo(visibles, abierta);
     final posicion = _posicion;
-    final dentro = parque != null &&
+    final dentro =
+        parque != null &&
         posicion != null &&
-        _dentroDeGeocerca(parque, posicion);
+        _dentroDeGeocerca(parque, posicion, abierta: abierta);
     final distancia = parque != null && posicion != null
         ? distanciaMetros(
             posicion.latitude,
@@ -349,11 +362,11 @@ class _MarcajePageState extends ConsumerState<MarcajePage> {
             mensaje: distancia == null
                 ? 'Selecciona el parque donde te encuentras.'
                 : dentro
-                    ? 'Estás dentro de la geocerca. Precisión GPS: '
-                        '${posicion.accuracy.toStringAsFixed(0)} m.'
-                    : 'Estás a ${distancia.toStringAsFixed(0)} m del parque '
-                        '(radio ${parque!.radioMetros.toStringAsFixed(0)} m). '
-                        'Acércate para poder marcar.',
+                ? 'Estás dentro de la geocerca. Precisión GPS: '
+                      '${posicion.accuracy.toStringAsFixed(0)} m.'
+                : 'Estás a ${distancia.toStringAsFixed(0)} m del parque '
+                      '(radio ${parque!.radioMetros.toStringAsFixed(0)} m). '
+                      'Acércate para poder marcar.',
           ),
           if (abierta != null && parque != null && !parque.activo) ...[
             const SizedBox(height: 10),
@@ -362,8 +375,7 @@ class _MarcajePageState extends ConsumerState<MarcajePage> {
               color: colores.tertiaryContainer,
               colorTexto: colores.onTertiaryContainer,
               titulo: 'Parque desactivado',
-              mensaje:
-                  'El parque se desactivó durante tu turno. Puedes cerrar la jornada desde aquí, pero no abrir una nueva.',
+              mensaje: 'El parque se desactivó durante tu turno. Puedes cerrar la jornada desde aquí, pero no abrir una nueva.',
             ),
           ],
         ],
@@ -414,10 +426,7 @@ class _MarcajePageState extends ConsumerState<MarcajePage> {
             ),
             items: [
               for (final item in activos)
-                DropdownMenuItem(
-                  value: item.id,
-                  child: Text(item.nombre),
-                ),
+                DropdownMenuItem(value: item.id, child: Text(item.nombre)),
             ],
             onChanged: (valor) => setState(() => _parqueManualId = valor),
           ),
@@ -434,9 +443,7 @@ class _MarcajePageState extends ConsumerState<MarcajePage> {
                   child: CircularProgressIndicator(strokeWidth: 2.4),
                 )
               : Icon(
-                  abierta == null
-                      ? Icons.login_rounded
-                      : Icons.logout_rounded,
+                  abierta == null ? Icons.login_rounded : Icons.logout_rounded,
                 ),
           label: Text(
             abierta == null ? 'Registrar entrada' : 'Registrar salida',
@@ -447,9 +454,8 @@ class _MarcajePageState extends ConsumerState<MarcajePage> {
           'El marcaje se valida contra la geocerca del parque. '
           'El mapa es solo informativo y no permite mover ni ampliar la zona.',
           textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: colores.onSurfaceVariant,
-              ),
+          style: Theme.of(context).textTheme.bodySmall
+              ?.copyWith(color: colores.onSurfaceVariant),
         ),
       ],
     );
@@ -464,8 +470,8 @@ class _MarcajePageState extends ConsumerState<MarcajePage> {
     final centro = posicion != null
         ? LatLng(posicion.latitude, posicion.longitude)
         : parque != null
-            ? LatLng(parque.latitud, parque.longitud)
-            : const LatLng(10.4806, -66.9036);
+        ? LatLng(parque.latitud, parque.longitud)
+        : const LatLng(10.4806, -66.9036);
 
     return FlutterMap(
       mapController: _mapa,
@@ -492,13 +498,13 @@ class _MarcajePageState extends ConsumerState<MarcajePage> {
                 color: !item.activo
                     ? const Color(0x1A64748B)
                     : item.id == parque?.id
-                        ? const Color(0x330F766E)
-                        : const Color(0x1A0F766E),
+                    ? const Color(0x330F766E)
+                    : const Color(0x1A0F766E),
                 borderColor: !item.activo
                     ? const Color(0x6664748B)
                     : item.id == parque?.id
-                        ? const Color(0xCC0F766E)
-                        : const Color(0x660F766E),
+                    ? const Color(0xCC0F766E)
+                    : const Color(0x660F766E),
                 borderStrokeWidth: 2,
               ),
           ],
@@ -518,8 +524,8 @@ class _MarcajePageState extends ConsumerState<MarcajePage> {
                   color: !item.activo
                       ? const Color(0xFF94A3B8)
                       : item.id == parque?.id
-                          ? const Color(0xFF0F766E)
-                          : const Color(0xFF64748B),
+                      ? const Color(0xFF0F766E)
+                      : const Color(0xFF64748B),
                 ),
               ),
             if (posicion != null)
@@ -545,9 +551,7 @@ class _MarcajePageState extends ConsumerState<MarcajePage> {
           ],
         ),
         const RichAttributionWidget(
-          attributions: [
-            TextSourceAttribution('OpenStreetMap contributors'),
-          ],
+          attributions: [TextSourceAttribution('OpenStreetMap contributors')],
         ),
       ],
     );
