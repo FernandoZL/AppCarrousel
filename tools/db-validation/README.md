@@ -66,8 +66,11 @@ dejan datos ni privilegios modificados.
 - Propagación de `ruta` al subárbol al mover un centro.
 - RLS de `empresas`, `centros_costo` y `parques` por tenant y subárbol.
 - Geocerca: rango de latitud/longitud y radio entre 1 y 10 000 m.
-- Distancia haversine, tolerancia por precisión GPS (máximo 100 m) y
-  fail-closed sin claims o con parque de otra empresa.
+- Distancia haversine, tolerancia fija de precisión GPS (100 m) al evaluar la
+  geocerca y fail-closed sin claims o con parque de otra empresa. Ese valor no
+  es el umbral configurable de la empresa
+  (`empresas.gps_precision_maxima_metros`, 10–1000 m en la migración `0024`),
+  que determina cuándo un marcaje se reporta como impreciso.
 - Jornadas: apertura/cierre por el propio empleado, validación de geocerca en
   base de datos, una sola jornada abierta por empleado, inmutabilidad de
   columnas sensibles, RLS por subárbol y conservación del historial.

@@ -4,7 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:carrousel_app/core/errors/error_messages.dart';
 import 'package:carrousel_app/core/utils/duraciones.dart';
 import 'package:carrousel_app/core/widgets/estado_widgets.dart';
+import 'package:carrousel_app/features/auth/domain/entities/perfil.dart';
+import 'package:carrousel_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:carrousel_app/features/catalogo/domain/entities/centro_costo.dart';
+import 'package:carrousel_app/features/catalogo/domain/utils/centros.dart';
 import 'package:carrousel_app/features/catalogo/presentation/providers/catalogo_providers.dart';
 import 'package:carrousel_app/features/equipo/domain/entities/registro_pendiente.dart';
 import 'package:carrousel_app/features/equipo/presentation/providers/equipo_providers.dart';
@@ -16,14 +19,22 @@ class RegistrosPendientesPage extends ConsumerWidget {
   Future<void> _aprobar(
     BuildContext context,
     WidgetRef ref,
+    Perfil? perfil,
+    List<CentroCosto> centros,
     RegistroPendiente registro,
   ) async {
-    final centros =
-        ref.read(centrosProvider).valueOrNull ?? const <CentroCosto>[];
-    if (centros.isEmpty) {
+    // `aprobar_registro` exige que el centro esté en el subárbol del admin.
+    // La base vuelve a validarlo; el selector no debe ofrecer centros que la
+    // RPC rechazaría.
+    final disponibles = perfil == null
+        ? const <CentroCosto>[]
+        : subarbolDe(centros, perfil.centroCostoId);
+    if (disponibles.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No hay centros de costo disponibles para asignar.'),
+          content: Text(
+            'No hay centros de costo disponibles dentro de tu subárbol.',
+          ),
         ),
       );
       return;
@@ -31,7 +42,7 @@ class RegistrosPendientesPage extends ConsumerWidget {
 
     final resultado = await showDialog<_Aprobacion>(
       context: context,
-      builder: (_) => _DialogoAprobar(registro: registro, centros: centros),
+      builder: (_) => _DialogoAprobar(registro: registro, centros: disponibles),
     );
     if (resultado == null || !context.mounted) return;
 
@@ -91,6 +102,9 @@ class RegistrosPendientesPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final registrosAsync = ref.watch(registrosPendientesProvider);
+    final perfil = ref.watch(perfilProvider).valueOrNull;
+    final centros =
+        ref.watch(centrosProvider).valueOrNull ?? const <CentroCosto>[];
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -145,7 +159,8 @@ class RegistrosPendientesPage extends ConsumerWidget {
                 for (final registro in registros)
                   _TarjetaRegistro(
                     registro: registro,
-                    onAprobar: () => _aprobar(context, ref, registro),
+                    onAprobar: () =>
+                        _aprobar(context, ref, perfil, centros, registro),
                     onRechazar: () => _rechazar(context, ref, registro),
                   ),
             ],

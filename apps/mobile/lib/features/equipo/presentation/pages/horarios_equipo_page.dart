@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:carrousel_app/core/errors/error_messages.dart';
 import 'package:carrousel_app/core/utils/selectores_fecha.dart';
 import 'package:carrousel_app/core/widgets/estado_widgets.dart';
+import 'package:carrousel_app/features/auth/domain/entities/perfil.dart';
 import 'package:carrousel_app/features/auth/presentation/providers/auth_providers.dart';
 import 'package:carrousel_app/features/equipo/domain/entities/miembro_equipo.dart';
 import 'package:carrousel_app/features/equipo/presentation/providers/equipo_providers.dart';
@@ -23,11 +24,11 @@ class _HorariosEquipoPageState extends ConsumerState<HorariosEquipoPage> {
   String? _empleadoId;
 
   Future<void> _editar({
+    required Perfil? perfil,
     required MiembroEquipo miembro,
     required int diaSemana,
     Horario? horario,
   }) async {
-    final perfil = ref.read(perfilProvider).valueOrNull;
     if (perfil == null) return;
 
     final edicion = await showDialog<_EdicionHorario>(
@@ -114,6 +115,7 @@ class _HorariosEquipoPageState extends ConsumerState<HorariosEquipoPage> {
   @override
   Widget build(BuildContext context) {
     final miembrosAsync = ref.watch(miembrosEquipoProvider);
+    final perfil = ref.watch(perfilProvider).valueOrNull;
 
     return miembrosAsync.when(
       loading: () => const CargandoWidget(mensaje: 'Cargando el equipo...'),
@@ -210,6 +212,7 @@ class _HorariosEquipoPageState extends ConsumerState<HorariosEquipoPage> {
                         dia: dia,
                         horario: porDia[dia],
                         onEditar: () => _editar(
+                          perfil: perfil,
                           miembro: seleccionado,
                           diaSemana: dia,
                           horario: porDia[dia],
@@ -409,19 +412,21 @@ class _DialogoHorarioState extends State<_DialogoHorario> {
   void _confirmar() {
     final toleranciaEntrada = int.tryParse(_toleranciaEntrada.text.trim());
     final toleranciaSalida = int.tryParse(_toleranciaSalida.text.trim());
+    // La base acepta 0..240 minutos (migración 0024); el cliente no debe
+    // rechazar valores que PostgreSQL considera válidos.
     if (toleranciaEntrada == null ||
         toleranciaEntrada < 0 ||
-        toleranciaEntrada > 120) {
+        toleranciaEntrada > 240) {
       setState(
-        () => _error = 'La tolerancia de entrada debe estar entre 0 y 120.',
+        () => _error = 'La tolerancia de entrada debe estar entre 0 y 240.',
       );
       return;
     }
     if (toleranciaSalida == null ||
         toleranciaSalida < 0 ||
-        toleranciaSalida > 120) {
+        toleranciaSalida > 240) {
       setState(
-        () => _error = 'La tolerancia de salida debe estar entre 0 y 120.',
+        () => _error = 'La tolerancia de salida debe estar entre 0 y 240.',
       );
       return;
     }
