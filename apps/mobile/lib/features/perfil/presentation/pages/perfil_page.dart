@@ -140,11 +140,11 @@ class PerfilPage extends ConsumerWidget {
                 ?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: colores.surface,
+          Material(
+            color: colores.surface,
+            shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: colores.outlineVariant, width: 0.7),
+              side: BorderSide(color: colores.outlineVariant, width: 0.7),
             ),
             child: ListTile(
               shape: RoundedRectangleBorder(
@@ -169,11 +169,11 @@ class PerfilPage extends ConsumerWidget {
               ?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: colores.surface,
+        Material(
+          color: colores.surface,
+          shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: colores.outlineVariant, width: 0.7),
+            side: BorderSide(color: colores.outlineVariant, width: 0.7),
           ),
           child: ListTile(
             shape: RoundedRectangleBorder(
@@ -205,11 +205,11 @@ class PerfilPage extends ConsumerWidget {
               ?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: colores.surface,
+        Material(
+          color: colores.surface,
+          shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: colores.outlineVariant, width: 0.7),
+            side: BorderSide(color: colores.outlineVariant, width: 0.7),
           ),
           child: ListTile(
             shape: RoundedRectangleBorder(

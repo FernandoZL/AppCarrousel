@@ -129,7 +129,7 @@ dejan datos ni privilegios modificados.
   y `es_autorizador()` distingue al jefe de su subárbol de otro admin.
 - Horarios y GPS: un horario por empleado y día ISO, tolerancias acotadas,
   entrada distinta de salida, lectura por empleado o subárbol; zona horaria IANA
-  y umbral de precisión GPS por empresa (mínimo 10 m); `fecha_local()` y
+  y umbral de precisión GPS por empresa (10–1000 m); `fecha_local()` y
   `horario_del_dia()` usan esa zona.
 - Registro por código: `solicitar_registro` valida el código de empresa, exige
   que el usuario aún no tenga perfil, sincroniza el nombre declarado a
@@ -170,7 +170,7 @@ dejan datos ni privilegios modificados.
   las vistas de reporte.
 - Auditoría: `actualizado_en` y `actualizado_por`.
 
-Resultado actual: **345 pruebas OK, 0 FAIL**.
+Resultado actual: **346 pruebas OK, 0 FAIL**.
 
 ## Límites
 
