@@ -2,8 +2,11 @@ import EmbeddedPostgres from 'embedded-postgres';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+import { promisify } from 'node:util';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parsearCsv } from '../importar-ceco/lib/csv.mjs';
 import { construirPlan, generarSql } from '../importar-ceco/lib/ceco.mjs';
 
@@ -26,6 +29,54 @@ const pg = new EmbeddedPostgres({
   onLog: () => {},
   onError: (e) => console.error('[pg:err]', e),
 });
+
+// En Windows, `embedded-postgres` lanza postgres.exe directamente. Si el
+// proceso de Node se ejecuta con un token elevado, PostgreSQL se niega a
+// arrancar ("Execution of PostgreSQL by a user with administrative permissions
+// is not permitted") y la librería rechaza sin mensaje. `pg_ctl` inicia el
+// mismo binario con un token reducido, así que lo usamos para el ciclo de vida
+// del clúster en esta plataforma.
+const runFile = promisify(execFile);
+let ctlStarted = false;
+let ctlPromise;
+
+async function pgCtl() {
+  ctlPromise ??= (async () => {
+    const require = createRequire(import.meta.url);
+    const embeddedEntry = require.resolve('embedded-postgres');
+    const binariesEntry = createRequire(embeddedEntry).resolve(
+      '@embedded-postgres/windows-x64',
+    );
+    const { pg_ctl } = await import(pathToFileURL(binariesEntry).href);
+    return pg_ctl;
+  })();
+  return ctlPromise;
+}
+
+if (process.platform === 'win32') {
+  pg.start = async () => {
+    const pgCtlPath = await pgCtl();
+    const logFile = path.join(dataDir, 'server.log');
+    await runFile(pgCtlPath, [
+      '-D', dataDir,
+      '-l', logFile,
+      '-o', `-p ${port}`,
+      '-w', 'start',
+    ], { timeout: 60000 });
+    ctlStarted = true;
+    // `createDatabase` y `dropDatabase` comproban este campo interno.
+    pg.process = { pid: 0 };
+  };
+
+  pg.stop = async () => {
+    if (!ctlStarted) return;
+    ctlStarted = false;
+    pg.process = undefined;
+    await runFile(await pgCtl(), ['-D', dataDir, '-m', 'fast', '-w', 'stop'], {
+      timeout: 60000,
+    });
+  };
+}
 
 let exitCode = 0;
 
@@ -2130,6 +2181,7 @@ const T = {
   reg1: 'e2000000-0000-4000-8000-000000000001',
   reg2: 'e2000000-0000-4000-8000-000000000002',
   regB: 'e2000000-0000-4000-8000-000000000003',
+  regPuesto: 'e2000000-0000-4000-8000-000000000004',
   jLate: 'd2000000-0000-4000-8000-000000000001',
   jGps: 'd2000000-0000-4000-8000-000000000002',
   jPark: 'd2000000-0000-4000-8000-000000000003',
@@ -2175,8 +2227,9 @@ await q(`
   insert into auth.users (id, email, raw_app_meta_data, raw_user_meta_data) values
     ($1, 'reg.uno@example.com', '{}'::jsonb, '{"nombre_completo":"Registro Uno"}'::jsonb),
     ($2, 'reg.dos@example.com', '{}'::jsonb, '{"nombre_completo":"Registro Dos"}'::jsonb),
-    ($3, 'reg.b@example.com',   '{}'::jsonb, '{"nombre_completo":"Registro B"}'::jsonb);
-`, [T.reg1, T.reg2, T.regB]);
+    ($3, 'reg.b@example.com',   '{}'::jsonb, '{"nombre_completo":"Registro B"}'::jsonb),
+    ($4, 'reg.puesto@example.com', '{}'::jsonb, '{"nombre_completo":"Registro Puesto"}'::jsonb);
+`, [T.reg1, T.reg2, T.regB, T.regPuesto]);
 
 const localHora = (hhmm) =>
   `((date_trunc('day', now() at time zone 'America/Guatemala') + interval '${hhmm}') at time zone 'America/Guatemala')`;
@@ -2608,6 +2661,93 @@ await expectRoleError('el cliente no inserta registros directamente',
   `insert into public.registros_pendientes (empresa_id, usuario_id, email, nombre_completo)
    values ($1, $2, 'x@example.com', 'Directo')`,
   [A.empresa, T.reg1], '42501');
+
+// -----------------------------------------------------------------------------
+// Puesto declarado por la persona al registrarse
+// -----------------------------------------------------------------------------
+group('Puesto declarado al registrarse');
+
+const comoSolicitantePuesto = async (fn) => {
+  await q('set local role authenticated');
+  await q(`select set_config('request.jwt.claims', $1, true)`,
+    [JSON.stringify({ sub: T.regPuesto })]);
+  return fn();
+};
+
+await q('begin');
+try {
+  eq('el cliente de dos argumentos declara Especialista',
+    await comoSolicitantePuesto(async () => {
+      await q(`select public.solicitar_registro('EMPRESA-A', 'Registro Puesto')`);
+      return scalar(
+        'select puesto from public.registros_pendientes where usuario_id = $1',
+        [T.regPuesto]);
+    }), 'Especialista');
+} finally {
+  await q('rollback');
+}
+
+await q('begin');
+try {
+  eq('la persona puede escribir su puesto',
+    await comoSolicitantePuesto(async () => {
+      await q(`select public.solicitar_registro('EMPRESA-A', 'Registro Puesto', 'Técnico de juegos')`);
+      return scalar(
+        'select puesto from public.registros_pendientes where usuario_id = $1',
+        [T.regPuesto]);
+    }), 'Técnico de juegos');
+} finally {
+  await q('rollback');
+}
+
+await q('begin');
+try {
+  eq('Especialista se normaliza sin importar mayúsculas o espacios',
+    await comoSolicitantePuesto(async () => {
+      await q(`select public.solicitar_registro('EMPRESA-A', 'Registro Puesto', '  especialista ')`);
+      return scalar(
+        'select puesto from public.registros_pendientes where usuario_id = $1',
+        [T.regPuesto]);
+    }), 'Especialista');
+} finally {
+  await q('rollback');
+}
+
+await expectRoleError('un puesto vacío no crea la solicitud',
+  'authenticated', { sub: T.regPuesto },
+  `select public.solicitar_registro('EMPRESA-A', 'Registro Puesto', '   ')`, [], '23514');
+
+await expectRoleError('un puesto demasiado largo no crea la solicitud',
+  'authenticated', { sub: T.regPuesto },
+  `select public.solicitar_registro('EMPRESA-A', 'Registro Puesto', repeat('x', 121))`,
+  [], '23514');
+
+await q('begin');
+try {
+  const registro = await comoSolicitantePuesto(async () => {
+    await q(`select public.solicitar_registro('EMPRESA-A', 'Registro Puesto', 'Atención al cliente')`);
+    return scalar(
+      'select id from public.registros_pendientes where usuario_id = $1',
+      [T.regPuesto]);
+  });
+
+  await q(`select set_config('request.jwt.claims', $1, true)`,
+    [JSON.stringify(claims(U.gerA, A.empresa, A.child, 'admin'))]);
+  await q('select public.aprobar_registro($1, $2, null)', [registro, A.grand]);
+
+  eq('la aprobación materializa el puesto declarado en el perfil',
+    await scalar('select puesto from public.perfiles where id = $1',
+      [T.regPuesto]), 'Atención al cliente');
+  eq('la aprobación conserva el puesto en los claims',
+    await (async () => {
+      await q('reset role');
+      return scalar(
+        `select raw_app_meta_data ->> 'puesto' from auth.users where id = $1`,
+        [T.regPuesto]);
+    })(), 'Atención al cliente');
+} finally {
+  await q('rollback');
+}
 
 // -----------------------------------------------------------------------------
 // CECO por lugar

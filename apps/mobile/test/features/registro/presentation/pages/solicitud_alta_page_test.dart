@@ -21,8 +21,13 @@ class _FakeRegistroRepository implements RegistroRepository {
   Future<String> solicitar({
     required String codigoEmpresa,
     required String nombreCompleto,
+    required String puesto,
   }) async {
-    solicitudes.add({'codigo': codigoEmpresa, 'nombre': nombreCompleto});
+    solicitudes.add({
+      'codigo': codigoEmpresa,
+      'nombre': nombreCompleto,
+      'puesto': puesto,
+    });
     if (error != null) throw error!;
 
     registro = MiRegistro(
@@ -30,6 +35,7 @@ class _FakeRegistroRepository implements RegistroRepository {
       empresaId: 'e1',
       email: 'ana@carrousel.test',
       nombreCompleto: nombreCompleto,
+      puesto: puesto,
       estado: EstadoMiRegistro.pendiente,
       creadoEn: DateTime(2026, 11, 16),
     );
@@ -61,13 +67,64 @@ void main() {
 
     final campos = find.byType(TextFormField);
     await tester.enterText(campos.at(1), 'CARROUSEL');
+    await tester.ensureVisible(find.text('Enviar solicitud'));
     await tester.tap(find.text('Enviar solicitud'));
     await tester.pumpAndSettle();
 
     expect(repo.solicitudes, hasLength(1));
     expect(repo.solicitudes.single['codigo'], 'CARROUSEL');
     expect(repo.solicitudes.single['nombre'], 'Ana Pérez');
+    expect(repo.solicitudes.single['puesto'], 'Especialista');
+    expect(
+      find.textContaining('Puesto declarado: Especialista.'),
+      findsOneWidget,
+    );
     expect(find.text('Solicitud en revisión'), findsOneWidget);
+  });
+
+  testWidgets('permite escribir un puesto distinto de Especialista', (
+    tester,
+  ) async {
+    final repo = _FakeRegistroRepository();
+
+    await tester.pumpWidget(_app(repo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Otro'));
+    await tester.pumpAndSettle();
+
+    final campos = find.byType(TextFormField);
+    await tester.enterText(campos.at(1), 'Técnico de juegos');
+    await tester.enterText(campos.at(2), 'CARROUSEL');
+    await tester.ensureVisible(find.text('Enviar solicitud'));
+    await tester.tap(find.text('Enviar solicitud'));
+    await tester.pumpAndSettle();
+
+    expect(repo.solicitudes, hasLength(1));
+    expect(repo.solicitudes.single['puesto'], 'Técnico de juegos');
+    expect(
+      find.textContaining('Puesto declarado: Técnico de juegos.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Otro exige escribir el puesto', (tester) async {
+    final repo = _FakeRegistroRepository();
+
+    await tester.pumpWidget(_app(repo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Otro'));
+    await tester.pumpAndSettle();
+
+    final campos = find.byType(TextFormField);
+    await tester.enterText(campos.at(2), 'CARROUSEL');
+    await tester.ensureVisible(find.text('Enviar solicitud'));
+    await tester.tap(find.text('Enviar solicitud'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Escribe tu puesto.'), findsOneWidget);
+    expect(repo.solicitudes, isEmpty);
   });
 
   testWidgets('traduce el código de empresa inválido', (tester) async {

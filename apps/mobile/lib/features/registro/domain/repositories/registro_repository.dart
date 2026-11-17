@@ -8,6 +8,7 @@ abstract class RegistroRepository {
   Future<String> solicitar({
     required String codigoEmpresa,
     required String nombreCompleto,
+    required String puesto,
   });
 
   /// Última solicitud propia, o null si todavía no se ha solicitado el alta.
