@@ -129,3 +129,8 @@ para que el contrato con PostgREST sea explícito y no dependa de códigos
 
 El despliegue y la prueba contra un proyecto Supabase real quedan pendientes de
 credenciales; no se versionan claves ni tokens.
+
+> `supabase/config.toml` tampoco se versiona. Los comandos de la CLI que lo
+> requieren (`supabase start`, `supabase functions serve` y `supabase db reset`)
+> necesitan un config local generado con `supabase init` o el del proyecto
+> enlazado. El arnés de base de datos, las pruebas Deno y la CI no lo usan.

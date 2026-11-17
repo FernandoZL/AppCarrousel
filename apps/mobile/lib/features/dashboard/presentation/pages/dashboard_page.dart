@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:carrousel_app/core/utils/duraciones.dart';
+import 'package:carrousel_app/core/utils/zonas_horarias.dart';
 import 'package:carrousel_app/core/widgets/estado_widgets.dart';
+import 'package:carrousel_app/features/configuracion/presentation/providers/configuracion_providers.dart';
 import 'package:carrousel_app/features/jornada/domain/entities/jornada.dart';
 import 'package:carrousel_app/features/catalogo/domain/entities/parque.dart';
 import 'package:carrousel_app/features/auth/domain/entities/perfil.dart';
@@ -14,6 +16,22 @@ import 'package:carrousel_app/features/jornada/domain/utils/jornadas.dart';
 import 'package:carrousel_app/features/jornada/presentation/providers/jornada_providers.dart';
 import 'package:carrousel_app/features/jornada/presentation/pages/marcaje_page.dart';
 import 'package:carrousel_app/features/solicitudes/presentation/pages/solicitud_form_page.dart';
+
+/// Zona IANA de la empresa. Mientras carga se usa la zona por defecto.
+final zonaHorariaEmpresaProvider = Provider<String>((ref) {
+  final empresaId = ref.watch(perfilProvider).valueOrNull?.empresaId;
+  if (empresaId == null) return zonaHorariaPorDefecto;
+  final configuracion = ref
+      .watch(configuracionEmpresaProvider(empresaId))
+      .valueOrNull;
+  return configuracion?.zonaHoraria ?? zonaHorariaPorDefecto;
+});
+
+/// Reloj inyectable: el dashboard se reconstruye cada 30 s y necesita leer la
+/// hora en cada build, no una vez al crear el provider.
+typedef RelojDashboard = DateTime Function();
+
+final relojDashboardProvider = Provider<RelojDashboard>((ref) => DateTime.now);
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -43,6 +61,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   Widget build(BuildContext context) {
     final perfil = ref.watch(perfilProvider).valueOrNull;
     final jornadasAsync = ref.watch(jornadasStreamProvider);
+    final zonaHoraria = ref.watch(zonaHorariaEmpresaProvider);
+    final ahora = ref.watch(relojDashboardProvider)();
     final parques = ref.watch(parquesProvider).valueOrNull ?? const <Parque>[];
     final nombresParques = {
       for (final parque in parques) parque.id: parque.nombre,
@@ -62,14 +82,20 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             SizedBox(
               height: MediaQuery.sizeOf(context).height * 0.6,
               child: MensajeError(
-                mensaje:
-                    'No se pudieron cargar tus jornadas. Desliza para reintentar.',
+                mensaje: 'No se pudieron cargar tus jornadas. Desliza para reintentar.',
                 onReintentar: () => ref.invalidate(jornadasStreamProvider),
               ),
             ),
           ],
         ),
-        data: (jornadas) => _contenido(context, perfil, jornadas, nombresParques),
+        data: (jornadas) => _contenido(
+          context,
+          perfil,
+          jornadas,
+          nombresParques,
+          ahora,
+          zonaHoraria,
+        ),
       ),
     );
   }
@@ -79,16 +105,23 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     Perfil? perfil,
     List<Jornada> jornadas,
     Map<String, String> nombresParques,
+    DateTime ahora,
+    String zonaHoraria,
   ) {
-    final ahora = DateTime.now();
     final abierta = jornadaAbiertaDe(jornadas);
-    final hoy = inicioDelDia(ahora);
-    final semana = inicioSemana(ahora);
-    final mes = inicioMes(ahora);
+    final ahoraLocal = ahoraEnZona(zonaHoraria, instante: ahora);
+    final hoy = inicioDelDiaEnZona(ahoraLocal, zonaHoraria);
+    final semana = inicioSemanaEnZona(ahoraLocal, zonaHoraria);
+    final mes = inicioMesEnZona(ahoraLocal, zonaHoraria);
 
-    final horasHoy = _sumar(jornadas, hoy, finDelDia(ahora), ahora);
-    final horasSemana = _sumar(jornadas, semana, ahora, ahora);
-    final horasMes = _sumar(jornadas, mes, ahora, ahora);
+    final horasHoy = _sumar(
+      jornadas,
+      hoy,
+      finDelDiaEnZona(ahoraLocal, zonaHoraria),
+      ahoraLocal,
+    );
+    final horasSemana = _sumar(jornadas, semana, ahoraLocal, ahoraLocal);
+    final horasMes = _sumar(jornadas, mes, ahoraLocal, ahoraLocal);
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -96,9 +129,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       children: [
         Text(
           'Hola, ${perfil?.primerNombre ?? ''}',
-          style: Theme.of(context)
-              .textTheme
-              .headlineSmall
+          style: Theme.of(context).textTheme.headlineSmall
               ?.copyWith(fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 4),
@@ -111,10 +142,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         const SizedBox(height: 20),
         _TarjetaJornada(
           abierta: abierta,
-          nombreParque: abierta == null ? null : nombresParques[abierta.parqueId],
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const MarcajePage()),
-          ),
+          nombreParque: abierta == null
+              ? null
+              : nombresParques[abierta.parqueId],
+          onPressed: () =>
+              Navigator.of(context)
+                  .push(MaterialPageRoute(builder: (_) => const MarcajePage())),
         ),
         const SizedBox(height: 20),
         LayoutBuilder(
@@ -157,18 +190,16 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         ),
         const SizedBox(height: 20),
         _AccionHorasExtras(
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const SolicitudFormPage()),
-          ),
+          onPressed: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const SolicitudFormPage())),
         ),
         const SizedBox(height: 26),
         Row(
           children: [
             Text(
               'Últimos marcajes',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
+              style: Theme.of(context).textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.w700),
             ),
             const Spacer(),
@@ -185,16 +216,16 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             child: EstadoVacio(
               icono: Icons.timer_outlined,
               titulo: 'Aún no tienes marcajes',
-              mensaje:
-                  'Cuando marques tu entrada aparecerá aquí tu jornada y tus horas trabajadas.',
+              mensaje: 'Cuando marques tu entrada aparecerá aquí tu jornada y tus horas trabajadas.',
             ),
           )
         else
-          ...jornadas.take(6).map(
+          ...jornadas
+              .take(6)
+              .map(
                 (jornada) => _FilaJornada(
                   jornada: jornada,
-                  nombreParque:
-                      nombresParques[jornada.parqueId] ?? 'Parque',
+                  nombreParque: nombresParques[jornada.parqueId] ?? 'Parque',
                 ),
               ),
       ],
@@ -209,8 +240,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   ) {
     var total = Duration.zero;
     for (final jornada in jornadas) {
-      final inicio =
-          jornada.entradaEn.isAfter(desde) ? jornada.entradaEn : desde;
+      final inicio = jornada.entradaEn.isAfter(desde)
+          ? jornada.entradaEn
+          : desde;
       final finReal = jornada.salidaEn ?? ahora;
       final fin = finReal.isBefore(hasta) ? finReal : hasta;
       if (fin.isAfter(inicio)) total += fin.difference(inicio);
@@ -266,8 +298,9 @@ class _TarjetaJornada extends StatelessWidget {
                 ),
                 child: Icon(
                   enCurso ? Icons.timer_rounded : Icons.location_on_outlined,
-                  color:
-                      enCurso ? colores.onPrimary : colores.onPrimaryContainer,
+                  color: enCurso
+                      ? colores.onPrimary
+                      : colores.onPrimaryContainer,
                 ),
               ),
               const SizedBox(width: 12),
@@ -386,8 +419,11 @@ class _AccionHorasExtras extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              Icon(Icons.add_alarm_rounded,
-                  size: 30, color: colores.onSecondaryContainer),
+              Icon(
+                Icons.add_alarm_rounded,
+                size: 30,
+                color: colores.onSecondaryContainer,
+              ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -410,8 +446,10 @@ class _AccionHorasExtras extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right_rounded,
-                  color: colores.onSecondaryContainer),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: colores.onSecondaryContainer,
+              ),
             ],
           ),
         ),
