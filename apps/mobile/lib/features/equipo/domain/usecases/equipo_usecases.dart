@@ -1,3 +1,4 @@
+import 'package:carrousel_app/features/equipo/domain/entities/ajuste_jornada.dart';
 import 'package:carrousel_app/features/equipo/domain/entities/cumplimiento_jornada.dart';
 import 'package:carrousel_app/features/equipo/domain/entities/miembro_equipo.dart';
 import 'package:carrousel_app/features/equipo/domain/entities/registro_pendiente.dart';
@@ -61,6 +62,15 @@ class AjustarJornada {
     salidaEn: salidaEn,
     motivo: motivo,
   );
+}
+
+class ListarAjustesJornada {
+  const ListarAjustesJornada(this._repo);
+
+  final EquipoRepository _repo;
+
+  Future<List<AjusteJornada>> call(String jornadaId) =>
+      _repo.ajustesJornada(jornadaId);
 }
 
 class ListarReporteHorasExtras {

@@ -1,5 +1,6 @@
 import 'package:carrousel_app/core/supabase/supabase_provider.dart';
 import 'package:carrousel_app/features/equipo/data/repositories/supabase_equipo_repository.dart';
+import 'package:carrousel_app/features/equipo/domain/entities/ajuste_jornada.dart';
 import 'package:carrousel_app/features/equipo/domain/entities/cumplimiento_jornada.dart';
 import 'package:carrousel_app/features/equipo/domain/entities/miembro_equipo.dart';
 import 'package:carrousel_app/features/equipo/domain/entities/registro_pendiente.dart';
@@ -32,6 +33,10 @@ final ajustarJornadaProvider = Provider<AjustarJornada>(
   (ref) => AjustarJornada(ref.watch(equipoRepositoryProvider)),
 );
 
+final listarAjustesJornadaProvider = Provider<ListarAjustesJornada>(
+  (ref) => ListarAjustesJornada(ref.watch(equipoRepositoryProvider)),
+);
+
 final listarReporteProvider = Provider<ListarReporteHorasExtras>(
   (ref) => ListarReporteHorasExtras(ref.watch(equipoRepositoryProvider)),
 );
@@ -56,6 +61,11 @@ final registrosPendientesProvider =
 final cumplimientoProvider =
     FutureProvider.autoDispose<List<CumplimientoJornada>>((ref) async {
       return ref.watch(listarCumplimientoProvider)();
+    });
+
+final ajustesJornadaProvider = FutureProvider.autoDispose
+    .family<List<AjusteJornada>, String>((ref, id) {
+      return ref.watch(listarAjustesJornadaProvider)(id);
     });
 
 final reporteHorasExtrasProvider =

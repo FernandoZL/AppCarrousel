@@ -1,8 +1,10 @@
 import 'package:carrousel_app/core/errors/error_messages.dart';
+import 'package:carrousel_app/features/equipo/data/mappers/ajuste_mapper.dart';
 import 'package:carrousel_app/features/equipo/data/mappers/cumplimiento_mapper.dart';
 import 'package:carrousel_app/features/equipo/data/mappers/miembro_mapper.dart';
 import 'package:carrousel_app/features/equipo/data/mappers/registro_mapper.dart';
 import 'package:carrousel_app/features/equipo/data/mappers/reporte_mapper.dart';
+import 'package:carrousel_app/features/equipo/domain/entities/ajuste_jornada.dart';
 import 'package:carrousel_app/features/equipo/domain/entities/cumplimiento_jornada.dart';
 import 'package:carrousel_app/features/equipo/domain/entities/miembro_equipo.dart';
 import 'package:carrousel_app/features/equipo/domain/entities/registro_pendiente.dart';
@@ -78,6 +80,21 @@ class SupabaseEquipoRepository implements EquipoRepository {
         'p_motivo': motivo.trim(),
       },
     );
+  }
+
+  @override
+  Future<List<AjusteJornada>> ajustesJornada(String jornadaId) async {
+    final filas = await _client
+        .from('jornadas_ajustes')
+        .select(
+          'id, jornada_id, empleado_id, ajustado_por, motivo, '
+          'entrada_en_anterior, salida_en_anterior, '
+          'entrada_en_nueva, salida_en_nueva, creado_en',
+        )
+        .eq('jornada_id', jornadaId)
+        .order('creado_en', ascending: false)
+        .limit(50);
+    return filas.map(ajusteJornadaDesdeMapa).toList(growable: false);
   }
 
   @override
