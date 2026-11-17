@@ -8,7 +8,7 @@ El núcleo se diseñó desde el inicio para escalar a toda la empresa sin datos 
 
 | Capa | Tecnología | Estado |
 |---|---|---|
-| Aplicación móvil | Flutter 3.47.9 / Dart 3.13.7, Riverpod, Material 3 | Implementada (login, dashboard, marcaje, horas extras, aprobaciones, perfil) |
+| Aplicación móvil | Flutter 3.47.9 / Dart 3.13.7, Riverpod, Material 3 | Implementada (login, registro, dashboard, marcaje, horas extras, aprobaciones, horarios, equipo, reportes, configuración, perfil y scaffold web) |
 | IDE móvil | Android Studio | Instalado en `C:\Program Files\Android\Android Studio` |
 | Backend y base de datos | Supabase / PostgreSQL 17, RLS, Realtime | Migraciones `0001`-`0030` implementadas y validadas |
 | Backend serverless | TypeScript sobre Deno (Supabase Edge Functions) | `invitar-usuario` implementada, verificada con `deno check` y 31 pruebas de integración |
@@ -68,6 +68,7 @@ No existe autoelevación: `authenticated` solo tiene `SELECT` sobre `public.perf
 - [x] Invitación automática de administradores con Edge Function y `service_role` (`supabase/functions/invitar-usuario`).
 - [x] Verificación estática de la Edge Function con `deno check`, `deno lint` y `deno fmt --check`.
 - [x] **31 pruebas de integración de la Edge Function OK, 0 fallos** (`npx -y deno test -A supabase/functions/tests/invitar_usuario_test.ts`), con un Supabase falso local.
+- [x] CI en GitHub Actions: `flutter analyze`, `flutter test`, arnés de PostgreSQL, importador de CECOs y verificaciones de la Edge Function en cada push y PR.
 - [ ] Despliegue y prueba de la Edge Function contra un proyecto Supabase real (requiere credenciales).
 - [ ] Validación con `supabase db reset` y JWT reales de Supabase (requiere Docker/WSL2).
 
@@ -93,7 +94,7 @@ El detalle del contrato y los comandos de despliegue están en [`supabase/functi
 
 ## Estado del backend — MT-02
 
-> MT-02 se integra a `develop` con el PR [#56](https://github.com/dgiron-2025071/AppCarrousel/pull/56) y se libera por partes a `main` desde el release [#60](https://github.com/dgiron-2025071/AppCarrousel/pull/60), con el último release [#70](https://github.com/dgiron-2025071/AppCarrousel/pull/70) del 2026-11-17. Las migraciones `0023`-`0030` se validan con el mismo arnés de PostgreSQL real y conservan las reglas de `0001`-`0022`.
+> MT-02 se integra a `develop` con el PR [#56](https://github.com/dgiron-2025071/AppCarrousel/pull/56) y se libera por partes a `main` desde el release [#60](https://github.com/dgiron-2025071/AppCarrousel/pull/60), con el último release [#76](https://github.com/dgiron-2025071/AppCarrousel/pull/76) del 2026-11-17. Las migraciones `0023`-`0030` se validan con el mismo arnés de PostgreSQL real y conservan las reglas de `0001`-`0022`.
 
 - [x] **0023** `puestos` por empresa y `perfiles.puesto_id` materializado desde `app_metadata.puesto_id`. `centros_costo.jefe_id` designa al administrador responsable; `private.jefe_de_centro()` sube por `ruta` al jefe más cercano y `private.es_autorizador()` resuelve la cadena. El jefe debe ser un admin activo de la misma empresa, así que la firma de revisión de `0019`-`0021` sigue siendo válida.
 - [x] **0024** Horario semanal por empleado y día ISO (`horarios`), zona horaria IANA y umbral de precisión GPS por empresa, con `private.fecha_local()` y `private.horario_del_dia()` para calcular llegadas y salidas.
@@ -113,15 +114,15 @@ La app arranca siempre en la pantalla de inicio de sesión: **no hay usuarios ni
 
 - **Login** con correo/contraseña, **creación de cuenta**, recuperación de contraseña y **Continuar con Google** (OAuth con PKCE y deep link).
 - **Registro propio con código de empresa:** la cuenta recién creada solicita el alta declarando su puesto: `Especialista` o `Otro` con el texto que la persona escriba. Ve el estado pendiente con el puesto declarado, el motivo si fue rechazada y puede reintentarlo. Al aprobarse, la app refresca la sesión para cargar el perfil; el rol final siempre es `empleado`.
-- **Dashboard del empleado** con horas de hoy, semana y mes, jornada en curso y últimos marcajes; se actualiza con Realtime.
+- **Dashboard del empleado** con horas de hoy, semana y mes calculadas en la zona horaria IANA de la empresa, jornada en curso y últimos marcajes; se actualiza con Realtime.
 - **Marcaje de entrada/salida** con `flutter_map` + OpenStreetMap, GPS nativo y selección del parque. El mapa usa `InteractiveFlag.none`; la geocerca se valida en PostgreSQL. Si el parque se desactiva durante el turno, la app conserva ese parque para poder cerrar la jornada y no lo ofrece para nuevas entradas. Si el administrador mueve o redimensiona el parque, el cierre se valida contra la geocerca guardada al entrar, tanto en el chequeo local del cliente como en la base.
 - **Horas extras:** rango de horas, lugar (parque) y centro de costo habilitado para ese lugar, más la justificación. El formulario elige primero el lugar y luego su CECO; la solicitud nace `pendiente`.
 - **Historial propio** de solicitudes con estado, comentario del administrador y actualización en tiempo real. El especialista puede retirar una solicitud mientras siga pendiente; la cancelación conserva el historial.
 - **Mi horario:** vista semanal de los siete días con turno, tolerancias y aviso de turno nocturno.
 - **Aprobaciones del admin:** solicitudes del subárbol con nombre del especialista, justificación, lugar, centro de costo y comentario opcional al aprobar o rechazar. El resultado le llega al especialista por Realtime.
-- **Altas con código de empresa (admin):** bandeja de `registros_pendientes` con el puesto declarado por cada solicitante; al aprobar solo se asigna el centro de costo. La cuenta queda siempre como empleado y conserva el puesto declarado.
+- **Altas con código de empresa (admin):** bandeja de `registros_pendientes` con el puesto declarado por cada solicitante; al aprobar solo se asigna un centro de costo del subárbol del administrador, igual que exige la RPC. La cuenta queda siempre como empleado y conserva el puesto declarado.
 - **Jornadas del equipo (admin):** cumplimiento por jornada con horario programado, minutos de llegada tarde o salida temprana, incidencias automáticas y ajuste con motivo obligatorio. Cada tarjeta permite consultar el historial inmutable de correcciones, con motivo, valores anterior/nuevo y fecha.
-- **Horarios del equipo (admin):** alta, edición y borrado del horario semanal por integrante y día ISO, con tolerancias de entrada y salida.
+- **Horarios del equipo (admin):** alta, edición y borrado del horario semanal por integrante y día ISO, con tolerancias de entrada y salida de 0 a 240 minutos, igual que la base.
 - **Centros por lugar (admin):** habilitar CECOs adicionales por parque, activarlos o desactivarlos; el principal se conserva y solo se cambia desde el parque.
 - **Configuración de la empresa (admin):** zona horaria IANA (validada por PostgreSQL) y umbral de precisión GPS (10–1000 m) que define cuándo un marcaje se reporta como impreciso.
 - **Reportes (admin):** filtro por estado, totales de horas aprobadas y pendientes, y exportación CSV al portapapeles generada en dominio puro.
@@ -214,6 +215,8 @@ pnpm --dir tools/db-validation test
 
 Cubre jerarquía dinámica y anti-ciclos, aislamiento por empresa, RLS de perfiles/centros/parques/jornadas/solicitudes, no autoelevación, geocerca con tolerancia GPS, una sola jornada abierta, coherencia de la revisión y prohibición de revisar solicitudes propias o ya revisadas. Las migraciones `0007`-`0022` añaden pruebas para el cierre de jornada con parque desactivado, el marcaje fuera del subárbol, los perfiles inactivos, la precisión GPS negativa, la revocación inmediata de lectura para un admin desactivado, el cierre de una jornada olvidada de más de 24 h, el retiro de solicitudes propias, la retención del historial ante el borrado de cuentas, el corte inmediato de acceso para una empresa inactiva, la degradación inmediata de un administrador, el cierre con una geocerca movida o redimensionada durante el turno, la integridad cross-tenant del empleado y del revisor, la revocación inmediata del alcance de un admin movido de subárbol, el rechazo de solicitudes de horas extras solapadas, la firma de la revisión por un administrador activo de la empresa, la revalidación del revisor al reasignar la solicitud y la revocación del perfil al quitar los claims. Las migraciones `0023`-`0030` suman puestos y autorizador jerárquico, horarios con zona horaria y umbral GPS, registro por código de empresa con sincronización del nombre visible, CECOs por lugar, incidencias y ajustes inmutables, reportes con RLS y el puesto declarado por la persona al registrarse. Además, el arnés falla si una tabla pública nueva no habilita RLS, si `anon` recibe escritura, si una función `SECURITY DEFINER` no fija `search_path` o si alguna función de `public`/`private` queda ejecutable por `PUBLIC`/`anon`. Resultado actual: **346 pruebas OK, 0 fallos**.
 
+La app Flutter se valida con `flutter analyze` y **102 pruebas** (`flutter test`) que cubren desde mappers y reglas de dominio hasta widgets de marcaje, formularios, aprobaciones, subárboles y resumen por zona horaria. El workflow `.github/workflows/validacion.yml` ejecuta todas estas comprobaciones en cada push y pull request.
+
 El SQL del importador de centros de costo se ejecuta en el mismo PostgreSQL real:
 
 ```bash
@@ -299,6 +302,8 @@ Las pruebas de integración levantan un servidor que emula Supabase Auth/PostgRE
 | 2026-11-17 | Release MT-02 — cobertura de validación y documentación | `develop` | [#72](https://github.com/dgiron-2025071/AppCarrousel/pull/72) | Mergeado a `main` | `flutter analyze`, 81 pruebas, 346 DB |
 | 2026-11-17 | Cobertura de UI — geocerca congelada, formulario de horas extras y aprobación con comentario | `dgiron-2025071` | [#73](https://github.com/dgiron-2025071/AppCarrousel/pull/73) | Mergeado a `develop` | `flutter analyze`, 94 pruebas, 346 DB |
 | 2026-11-17 | Release MT-02 — cobertura de UI y geocerca congelada en el cliente | `develop` | [#74](https://github.com/dgiron-2025071/AppCarrousel/pull/74) | Mergeado a `main` | `flutter analyze`, 94 pruebas, 346 DB |
+| 2026-11-17 | Correcciones de alcance, zona horaria y tolerancias; CI y documentación | `dgiron-2025071` | [#75](https://github.com/dgiron-2025071/AppCarrousel/pull/75) | Mergeado a `develop` | `flutter analyze`, 102 pruebas, 346 DB, CI |
+| 2026-11-17 | Release MT-02 — correcciones de alcance, zona horaria y CI | `develop` | [#76](https://github.com/dgiron-2025071/AppCarrousel/pull/76) | Mergeado a `main` | `flutter analyze`, 102 pruebas, 346 DB, CI |
 
 > Nota de proceso: el PR #1 se creó como borrador y GitHub devolvió un error de GraphQL al intentar marcarlo como listo. Se cerró y se recreó como PR #2. El PR #14 no existe.
 
@@ -342,7 +347,13 @@ File > Open... > C:\AppCarrousel\apps\mobile
 # Validación real de las migraciones (PostgreSQL portátil, sin Docker)
 pnpm --dir tools/db-validation test
 
-# Pruebas de integración de la Edge Function (Supabase falso, sin credenciales)
+# Importador de CECOs
+pnpm --dir tools/importar-ceco test
+
+# Verificación y pruebas de la Edge Function (Supabase falso, sin credenciales)
+npx -y deno check supabase/functions/invitar-usuario/index.ts
+npx -y deno lint supabase/functions/invitar-usuario/index.ts
+npx -y deno fmt --check supabase/functions/invitar-usuario/index.ts
 npx -y deno test -A supabase/functions/tests/invitar_usuario_test.ts
 
 # Backend con Supabase local (cuando Docker esté disponible)
@@ -353,15 +364,20 @@ supabase db reset
 cd apps/mobile
 flutter pub get
 flutter analyze
+flutter test
 flutter build apk --debug
 flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...
 ```
+
+Los mismos comandos de análisis y pruebas se ejecutan automáticamente en
+`.github/workflows/validacion.yml`. Los que usan la CLI de Supabase requieren un
+`supabase/config.toml` local, que no se versiona.
 
 ## Siguientes pasos
 
 1. Desplegar `invitar-usuario` en el proyecto Supabase real y probar el flujo completo de invitación con correo.
 2. Validar las migraciones con `supabase db reset` y JWT reales de Supabase cuando Docker/WSL2 esté disponible.
-3. Ampliar las pruebas de widget/unitarias de la app Flutter (ya existen pruebas de subárboles, selección de parques para cierre, errores de la función y pantalla de invitación).
+3. Ampliar la cobertura de los módulos aún sin pruebas propias (`auth`, `dashboard`, `perfil`, `root_gate`, `equipo` y `mi_horario_page`) y el caso negativo de geocerca congelada; hoy hay 102 pruebas Flutter que ya cubren shell responsive, geocerca congelada, umbral GPS, formularios, aprobaciones, subárboles y zona horaria.
 4. MT-01 cerrada con el merge de `develop` a `main` (PR #39, `894f2b5`).
 
 ## Seguridad
