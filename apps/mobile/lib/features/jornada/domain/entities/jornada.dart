@@ -11,6 +11,9 @@ class Jornada {
     required this.entradaDentroGeocerca,
     this.salidaEn,
     this.salidaDentroGeocerca,
+    this.entradaParqueLat,
+    this.entradaParqueLon,
+    this.entradaParqueRadioMetros,
   });
 
   final String id;
@@ -21,6 +24,12 @@ class Jornada {
   final DateTime? salidaEn;
   final bool entradaDentroGeocerca;
   final bool? salidaDentroGeocerca;
+
+  /// Foto de la geocerca tomada al entrar. La base la usa para validar la
+  /// salida aunque el parque se haya movido o redimensionado durante el turno.
+  final double? entradaParqueLat;
+  final double? entradaParqueLon;
+  final double? entradaParqueRadioMetros;
 
   bool get abierta => salidaEn == null;
 

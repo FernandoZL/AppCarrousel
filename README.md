@@ -114,7 +114,7 @@ La app arranca siempre en la pantalla de inicio de sesión: **no hay usuarios ni
 - **Login** con correo/contraseña, **creación de cuenta**, recuperación de contraseña y **Continuar con Google** (OAuth con PKCE y deep link).
 - **Registro propio con código de empresa:** la cuenta recién creada solicita el alta declarando su puesto: `Especialista` o `Otro` con el texto que la persona escriba. Ve el estado pendiente con el puesto declarado, el motivo si fue rechazada y puede reintentarlo. Al aprobarse, la app refresca la sesión para cargar el perfil; el rol final siempre es `empleado`.
 - **Dashboard del empleado** con horas de hoy, semana y mes, jornada en curso y últimos marcajes; se actualiza con Realtime.
-- **Marcaje de entrada/salida** con `flutter_map` + OpenStreetMap, GPS nativo y selección del parque. El mapa usa `InteractiveFlag.none`; la geocerca se valida en PostgreSQL. Si el parque se desactiva durante el turno, la app conserva ese parque para poder cerrar la jornada y no lo ofrece para nuevas entradas. Si el administrador mueve o redimensiona el parque, el cierre se valida contra la geocerca guardada al entrar.
+- **Marcaje de entrada/salida** con `flutter_map` + OpenStreetMap, GPS nativo y selección del parque. El mapa usa `InteractiveFlag.none`; la geocerca se valida en PostgreSQL. Si el parque se desactiva durante el turno, la app conserva ese parque para poder cerrar la jornada y no lo ofrece para nuevas entradas. Si el administrador mueve o redimensiona el parque, el cierre se valida contra la geocerca guardada al entrar, tanto en el chequeo local del cliente como en la base.
 - **Horas extras:** rango de horas, lugar (parque) y centro de costo habilitado para ese lugar, más la justificación. El formulario elige primero el lugar y luego su CECO; la solicitud nace `pendiente`.
 - **Historial propio** de solicitudes con estado, comentario del administrador y actualización en tiempo real. El especialista puede retirar una solicitud mientras siga pendiente; la cancelación conserva el historial.
 - **Mi horario:** vista semanal de los siete días con turno, tolerancias y aviso de turno nocturno.
@@ -297,6 +297,8 @@ Las pruebas de integración levantan un servidor que emula Supabase Auth/PostgRE
 | 2026-11-17 | Release MT-02 — scaffold web con menú lateral y tema claro/oscuro | `develop` | [#70](https://github.com/dgiron-2025071/AppCarrousel/pull/70) | Mergeado a `main` | `flutter analyze`, 77 pruebas, build web |
 | 2026-11-17 | Cobertura de validación — umbral GPS 10–1000 y shell responsive | `dgiron-2025071` | [#71](https://github.com/dgiron-2025071/AppCarrousel/pull/71) | Mergeado a `develop` | `flutter analyze`, 81 pruebas, 346 DB |
 | 2026-11-17 | Release MT-02 — cobertura de validación y documentación | `develop` | [#72](https://github.com/dgiron-2025071/AppCarrousel/pull/72) | Mergeado a `main` | `flutter analyze`, 81 pruebas, 346 DB |
+| 2026-11-17 | Cobertura de UI — geocerca congelada, formulario de horas extras y aprobación con comentario | `dgiron-2025071` | [#73](https://github.com/dgiron-2025071/AppCarrousel/pull/73) | Mergeado a `develop` | `flutter analyze`, 94 pruebas, 346 DB |
+| 2026-11-17 | Release MT-02 — cobertura de UI y geocerca congelada en el cliente | `develop` | [#74](https://github.com/dgiron-2025071/AppCarrousel/pull/74) | Mergeado a `main` | `flutter analyze`, 94 pruebas, 346 DB |
 
 > Nota de proceso: el PR #1 se creó como borrador y GitHub devolvió un error de GraphQL al intentar marcarlo como listo. Se cerró y se recreó como PR #2. El PR #14 no existe.
 

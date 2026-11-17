@@ -24,82 +24,19 @@ class AprobacionesPage extends ConsumerWidget {
     EstadoSolicitud decision,
   ) async {
     final aprobar = decision == EstadoSolicitud.aprobada;
-    final comentario = TextEditingController();
-
-    final confirmado = await showDialog<bool>(
+    final comentario = await showDialog<String>(
       context: context,
-      builder: (dialogo) => AlertDialog(
-        title: Text(aprobar ? 'Aprobar solicitud' : 'Rechazar solicitud'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                detalle.empleadoNombre,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                '${formatearFecha(detalle.solicitud.inicio)} · '
-                '${formatearHora(detalle.solicitud.inicio)} - '
-                '${formatearHora(detalle.solicitud.fin)} '
-                '(${formatearDuracion(detalle.solicitud.duracion)})',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(dialogo).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                detalle.solicitud.justificacion,
-                style: const TextStyle(fontSize: 13),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: comentario,
-                maxLines: 3,
-                maxLength: 2000,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: InputDecoration(
-                  labelText: 'Comentario (opcional)',
-                  hintText: aprobar
-                      ? 'Puedes dejar una nota para el especialista.'
-                      : 'Explica el motivo del rechazo.',
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogo).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogo).pop(true),
-            style: aprobar
-                ? null
-                : FilledButton.styleFrom(
-                    backgroundColor: Theme.of(dialogo).colorScheme.error,
-                    foregroundColor: Theme.of(dialogo).colorScheme.onError,
-                  ),
-            child: Text(aprobar ? 'Aprobar' : 'Rechazar'),
-          ),
-        ],
-      ),
+      builder: (dialogo) =>
+          _DialogoRevision(aprobar: aprobar, detalle: detalle),
     );
 
-    final texto = comentario.text;
-    comentario.dispose();
-
-    if (confirmado != true || !context.mounted) return;
+    if (comentario == null || !context.mounted) return;
 
     try {
       await ref.read(revisarSolicitudProvider)(
         solicitudId: detalle.solicitud.id,
         decision: decision,
-        comentario: texto,
+        comentario: comentario,
       );
       if (!context.mounted) return;
       ScaffoldMessenger.of(context)
@@ -115,9 +52,8 @@ class AprobacionesPage extends ConsumerWidget {
         );
     } catch (error) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(mensajeDeError(error))),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(mensajeDeError(error))));
     }
   }
 
@@ -150,10 +86,10 @@ class AprobacionesPage extends ConsumerWidget {
           final equipo = perfil == null
               ? todas
               : todas
-                  .where(
-                    (detalle) => detalle.solicitud.empleadoId != perfil.id,
-                  )
-                  .toList(growable: false);
+                    .where(
+                      (detalle) => detalle.solicitud.empleadoId != perfil.id,
+                    )
+                    .toList(growable: false);
           final pendientes = equipo
               .where(
                 (detalle) =>
@@ -173,9 +109,7 @@ class AprobacionesPage extends ConsumerWidget {
             children: [
               Text(
                 'Aprobaciones',
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineSmall
+                style: Theme.of(context).textTheme.headlineSmall
                     ?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 4),
@@ -190,26 +124,20 @@ class AprobacionesPage extends ConsumerWidget {
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const InvitarUsuarioPage(),
-                  ),
+                  MaterialPageRoute(builder: (_) => const InvitarUsuarioPage()),
                 ),
                 icon: const Icon(Icons.person_add_alt_1_rounded),
                 label: const Text('Invitar usuario'),
               ),
               const SizedBox(height: 18),
-              _Seccion(
-                titulo: 'Pendientes',
-                contador: pendientes.length,
-              ),
+              _Seccion(titulo: 'Pendientes', contador: pendientes.length),
               if (pendientes.isEmpty)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 18),
                   child: EstadoVacio(
                     icono: Icons.task_alt_rounded,
                     titulo: 'Todo al día',
-                    mensaje:
-                        'Las nuevas solicitudes de tu equipo aparecerán aquí automáticamente.',
+                    mensaje: 'Las nuevas solicitudes de tu equipo aparecerán aquí automáticamente.',
                   ),
                 )
               else
@@ -229,8 +157,9 @@ class AprobacionesPage extends ConsumerWidget {
                             ),
                             style: OutlinedButton.styleFrom(
                               minimumSize: const Size.fromHeight(44),
-                              foregroundColor:
-                                  Theme.of(context).colorScheme.error,
+                              foregroundColor: Theme.of(context)
+                                  .colorScheme
+                                  .error,
                             ),
                             icon: const Icon(Icons.close_rounded, size: 18),
                             label: const Text('Rechazar'),
@@ -270,6 +199,92 @@ class AprobacionesPage extends ConsumerWidget {
   }
 }
 
+/// El controlador vive en el diálogo para que no se libere antes de que
+/// termine la animación de salida al confirmar o cancelar.
+class _DialogoRevision extends StatefulWidget {
+  const _DialogoRevision({required this.aprobar, required this.detalle});
+
+  final bool aprobar;
+  final SolicitudDetalle detalle;
+
+  @override
+  State<_DialogoRevision> createState() => _DialogoRevisionState();
+}
+
+class _DialogoRevisionState extends State<_DialogoRevision> {
+  final _comentario = TextEditingController();
+
+  @override
+  void dispose() {
+    _comentario.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final aprobar = widget.aprobar;
+    final solicitud = widget.detalle.solicitud;
+
+    return AlertDialog(
+      title: Text(aprobar ? 'Aprobar solicitud' : 'Rechazar solicitud'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.detalle.empleadoNombre,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '${formatearFecha(solicitud.inicio)} · '
+              '${formatearHora(solicitud.inicio)} - '
+              '${formatearHora(solicitud.fin)} '
+              '(${formatearDuracion(solicitud.duracion)})',
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(solicitud.justificacion, style: const TextStyle(fontSize: 13)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _comentario,
+              maxLines: 3,
+              maxLength: 2000,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(
+                labelText: 'Comentario (opcional)',
+                hintText: aprobar
+                    ? 'Puedes dejar una nota para el especialista.'
+                    : 'Explica el motivo del rechazo.',
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_comentario.text),
+          style: aprobar
+              ? null
+              : FilledButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                  foregroundColor: Theme.of(context).colorScheme.onError,
+                ),
+          child: Text(aprobar ? 'Aprobar' : 'Rechazar'),
+        ),
+      ],
+    );
+  }
+}
+
 class _Seccion extends StatelessWidget {
   const _Seccion({required this.titulo, required this.contador});
 
@@ -283,9 +298,7 @@ class _Seccion extends StatelessWidget {
       children: [
         Text(
           titulo,
-          style: Theme.of(context)
-              .textTheme
-              .titleMedium
+          style: Theme.of(context).textTheme.titleMedium
               ?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(width: 8),
