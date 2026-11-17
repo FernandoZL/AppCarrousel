@@ -7,6 +7,7 @@ import 'package:carrousel_app/core/utils/selectores_fecha.dart';
 import 'package:carrousel_app/core/widgets/estado_widgets.dart';
 import 'package:carrousel_app/features/equipo/domain/entities/cumplimiento_jornada.dart';
 import 'package:carrousel_app/features/equipo/presentation/providers/equipo_providers.dart';
+import 'package:carrousel_app/features/equipo/presentation/widgets/historial_ajustes_dialog.dart';
 
 /// Cumplimiento de las jornadas del equipo: horario programado, minutos de
 /// diferencia, incidencias automáticas y corrección administrativa.
@@ -35,6 +36,7 @@ class _CumplimientoPageState extends ConsumerState<CumplimientoPage> {
         motivo: resultado.motivo,
       );
       ref.invalidate(cumplimientoProvider);
+      ref.invalidate(ajustesJornadaProvider(jornada.id));
       if (!mounted) return;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
@@ -43,6 +45,22 @@ class _CumplimientoPageState extends ConsumerState<CumplimientoPage> {
             content: Text('Jornada ajustada. El historial quedó registrado.'),
           ),
         );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(mensajeDeError(error))));
+    }
+  }
+
+  Future<void> _verHistorial(CumplimientoJornada jornada) async {
+    try {
+      final ajustes = await ref.read(ajustesJornadaProvider(jornada.id).future);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (_) =>
+            HistorialAjustesDialog(jornada: jornada, ajustes: ajustes),
+      );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -138,6 +156,7 @@ class _CumplimientoPageState extends ConsumerState<CumplimientoPage> {
                   _TarjetaCumplimiento(
                     jornada: jornada,
                     onAjustar: () => _ajustar(jornada),
+                    onVerHistorial: () => _verHistorial(jornada),
                   ),
             ],
           );
@@ -172,10 +191,15 @@ class _FiltroChip extends StatelessWidget {
 }
 
 class _TarjetaCumplimiento extends StatelessWidget {
-  const _TarjetaCumplimiento({required this.jornada, required this.onAjustar});
+  const _TarjetaCumplimiento({
+    required this.jornada,
+    required this.onAjustar,
+    required this.onVerHistorial,
+  });
 
   final CumplimientoJornada jornada;
   final VoidCallback onAjustar;
+  final VoidCallback onVerHistorial;
 
   @override
   Widget build(BuildContext context) {
@@ -312,18 +336,29 @@ class _TarjetaCumplimiento extends StatelessWidget {
               ],
             ),
           ],
-          if (jornada.puedeAjustar) ...[
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child: OutlinedButton.icon(
-                onPressed: onAjustar,
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              OutlinedButton.icon(
+                onPressed: onVerHistorial,
                 style: OutlinedButton.styleFrom(minimumSize: const Size(0, 42)),
-                icon: const Icon(Icons.tune_rounded, size: 18),
-                label: const Text('Ajustar jornada'),
+                icon: const Icon(Icons.history_rounded, size: 18),
+                label: const Text('Historial'),
               ),
-            ),
-          ],
+              if (jornada.puedeAjustar) ...[
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: onAjustar,
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 42),
+                  ),
+                  icon: const Icon(Icons.tune_rounded, size: 18),
+                  label: const Text('Ajustar jornada'),
+                ),
+              ],
+            ],
+          ),
         ],
       ),
     );
