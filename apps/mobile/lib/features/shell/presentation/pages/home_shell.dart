@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:carrousel_app/core/theme/theme_provider.dart';
 import 'package:carrousel_app/features/auth/domain/entities/perfil.dart';
 import 'package:carrousel_app/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:carrousel_app/features/equipo/presentation/pages/equipo_page.dart';
@@ -10,9 +12,10 @@ import 'package:carrousel_app/features/solicitudes/presentation/pages/solicitude
 
 /// Contenedor principal después del login.
 ///
-/// En pantallas anchas usa `NavigationRail` (extendido desde 1100 px); en
-/// móvil usa `NavigationBar`. El empleado ve Inicio, Horario, Horas extras y
-/// Perfil; el administrador suma la sección Equipo con sus pestañas.
+/// En web usa siempre `NavigationRail` lateral; en móvil, `NavigationBar`. En
+/// pantallas anchas el rail se extiende desde 1100 px. El empleado ve Inicio,
+/// Horario, Horas extras y Perfil; el administrador suma Equipo. El AppBar
+/// permite alternar entre tema claro y oscuro sin salir de la pantalla.
 class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key, required this.perfil});
 
@@ -28,6 +31,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final esAdmin = widget.perfil.esAdmin;
+    final modo = ref.watch(temaProvider);
+    final esOscuro =
+        modo == ThemeMode.dark ||
+        (modo == ThemeMode.system &&
+            Theme.of(context).brightness == Brightness.dark);
     final paginas = <Widget>[
       const DashboardPage(),
       const MiHorarioPage(),
@@ -69,11 +77,27 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final ancho = constraints.maxWidth;
-        final usarRail = ancho >= 900;
+        final usarRail = kIsWeb || ancho >= 900;
         final extendido = ancho >= 1100;
 
         return Scaffold(
-          appBar: AppBar(title: Text(titulos[indice])),
+          appBar: AppBar(
+            title: Text(titulos[indice]),
+            actions: [
+              IconButton(
+                icon: Icon(
+                  esOscuro
+                      ? Icons.light_mode_outlined
+                      : Icons.dark_mode_outlined,
+                ),
+                tooltip: esOscuro
+                    ? 'Cambiar a tema claro'
+                    : 'Cambiar a tema oscuro',
+                onPressed: () => ref.read(temaProvider.notifier).state =
+                    esOscuro ? ThemeMode.light : ThemeMode.dark,
+              ),
+            ],
+          ),
           body: usarRail
               ? Row(
                   children: [

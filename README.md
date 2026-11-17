@@ -125,8 +125,8 @@ La app arranca siempre en la pantalla de inicio de sesión: **no hay usuarios ni
 - **Centros por lugar (admin):** habilitar CECOs adicionales por parque, activarlos o desactivarlos; el principal se conserva y solo se cambia desde el parque.
 - **Configuración de la empresa (admin):** zona horaria IANA (validada por PostgreSQL) y umbral de precisión GPS (10–1000 m) que define cuándo un marcaje se reporta como impreciso.
 - **Reportes (admin):** filtro por estado, totales de horas aprobadas y pendientes, y exportación CSV al portapapeles generada en dominio puro.
-- **Apariencia:** tema claro, oscuro o automático desde el perfil (sin persistencia en disco).
-- **Navegación responsive:** `NavigationRail` en pantallas anchas (extendido desde 1100 px) y `NavigationBar` en móvil.
+- **Apariencia:** tema claro, oscuro o automático desde el perfil, más un acceso directo en la barra superior para alternar claro/oscuro (sin persistencia en disco).
+- **Navegación responsive:** `NavigationRail` lateral en web y en pantallas anchas (extendido desde 1100 px) y `NavigationBar` en móvil.
 - **Perfil:** datos de la cuenta, cambio de contraseña y cierre de sesión.
 - **Invitación de usuarios (admin):** correo, nombre, rol y centro de costo dentro de su subárbol. La pantalla consume la Edge Function `invitar-usuario`, muestra los errores del servidor y calcula el subárbol con la jerarquía dinámica de `centros_costo` (sin datos hardcodeados).
 
@@ -192,6 +192,17 @@ Si faltan las credenciales, la app muestra una pantalla de configuración con el
 - Permisos declarados: `INTERNET`, `ACCESS_FINE_LOCATION` y `ACCESS_COARSE_LOCATION` (solo ubicación en primer plano).
 - Label visible: **Carrousel**.
 - Application ID: `com.empresacarrousel.carrousel_app`.
+
+### Web
+
+```bash
+cd apps/mobile
+flutter build web --release
+```
+
+El menú lateral y el cambio rápido de tema están en `home_shell.dart`. Los
+metadatos de `web/index.html` y `web/manifest.json` usan la identidad Carrousel
+y apuntan a los iconos generados en `web/icons`.
 
 ## Validación de la base de datos
 
@@ -282,6 +293,7 @@ Las pruebas de integración levantan un servidor que emula Supabase Auth/PostgRE
 | 2026-11-17 | Release MT-02 - historial de ajustes de jornada | `develop` | [#66](https://github.com/dgiron-2025071/AppCarrousel/pull/66) | Mergeado a `main` | `flutter analyze`, 78 pruebas |
 | 2026-11-17 | App Flutter - puesto declarado al registrarse | `dgiron-2025071` | [#67](https://github.com/dgiron-2025071/AppCarrousel/pull/67) | Mergeado a `develop` | `flutter analyze`, 77 pruebas, 345 DB |
 | 2026-11-17 | Release MT-02 - puesto declarado al registrarse | `develop` | [#68](https://github.com/dgiron-2025071/AppCarrousel/pull/68) | Mergeado a `main` | `flutter analyze`, 77 pruebas, 345 DB |
+| 2026-11-17 | App Flutter — scaffold web con menú lateral y tema claro/oscuro | `dgiron-2025071` | [#69](https://github.com/dgiron-2025071/AppCarrousel/pull/69) | Mergeado a `develop` | `flutter analyze`, 77 pruebas, build web |
 
 > Nota de proceso: el PR #1 se creó como borrador y GitHub devolvió un error de GraphQL al intentar marcarlo como listo. Se cerró y se recreó como PR #2. El PR #14 no existe.
 
