@@ -2488,6 +2488,10 @@ await expectError('el umbral de GPS tiene un mínimo de 10 metros',
   'update public.empresas set gps_precision_maxima_metros = 5 where id = $1',
   [A.empresa], '23514');
 
+await expectError('el umbral de GPS tiene un máximo de 1000 metros',
+  'update public.empresas set gps_precision_maxima_metros = 1001 where id = $1',
+  [A.empresa], '23514');
+
 eq('la zona horaria por defecto es la de Guatemala',
   await scalar('select zona_horaria from public.empresas where id = $1', [A.empresa]),
   'America/Guatemala');

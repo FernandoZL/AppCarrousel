@@ -82,13 +82,27 @@ void main() {
     expect(repo.gpsGuardado, 50);
   });
 
-  testWidgets('valida el rango del umbral antes de guardar', (tester) async {
+  testWidgets('valida el mínimo del umbral antes de guardar', (tester) async {
     final repo = _FakeConfiguracion();
 
     await tester.pumpWidget(_app(repo));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField).at(1), '5');
+    await tester.tap(find.text('Guardar configuración'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Usa un valor entre 10 y 1000 metros.'), findsOneWidget);
+    expect(repo.zonaGuardada, isNull);
+  });
+
+  testWidgets('valida el máximo del umbral antes de guardar', (tester) async {
+    final repo = _FakeConfiguracion();
+
+    await tester.pumpWidget(_app(repo));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(1), '1001');
     await tester.tap(find.text('Guardar configuración'));
     await tester.pumpAndSettle();
 
