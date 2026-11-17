@@ -280,7 +280,8 @@ Las pruebas de integración levantan un servidor que emula Supabase Auth/PostgRE
 | 2026-11-17 | Release MT-02 - puestos y configuración de empresa | `develop` | [#64](https://github.com/dgiron-2025071/AppCarrousel/pull/64) | Mergeado a `main` | `flutter analyze`, 74 pruebas |
 | 2026-11-17 | App Flutter - historial de ajustes de jornada | `dgiron-2025071` | [#65](https://github.com/dgiron-2025071/AppCarrousel/pull/65) | Mergeado a `develop` | `flutter analyze`, 78 pruebas |
 | 2026-11-17 | Release MT-02 - historial de ajustes de jornada | `develop` | [#66](https://github.com/dgiron-2025071/AppCarrousel/pull/66) | Mergeado a `main` | `flutter analyze`, 78 pruebas |
-| 2026-11-17 | App Flutter - puesto declarado al registrarse | `dgiron-2025071` | [#67](https://github.com/dgiron-2025071/AppCarrousel/pull/67) | En revisión | `flutter analyze`, 77 pruebas, 345 DB |
+| 2026-11-17 | App Flutter - puesto declarado al registrarse | `dgiron-2025071` | [#67](https://github.com/dgiron-2025071/AppCarrousel/pull/67) | Mergeado a `develop` | `flutter analyze`, 77 pruebas, 345 DB |
+| 2026-11-17 | Release MT-02 - puesto declarado al registrarse | `develop` | [#68](https://github.com/dgiron-2025071/AppCarrousel/pull/68) | Mergeado a `main` | `flutter analyze`, 77 pruebas, 345 DB |
 
 > Nota de proceso: el PR #1 se creó como borrador y GitHub devolvió un error de GraphQL al intentar marcarlo como listo. Se cerró y se recreó como PR #2. El PR #14 no existe.
 
