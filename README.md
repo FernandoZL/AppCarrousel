@@ -10,7 +10,7 @@ El núcleo se diseñó desde el inicio para escalar a toda la empresa sin datos 
 |---|---|---|
 | Aplicación móvil | Flutter 3.47.9 / Dart 3.13.7, Riverpod, Material 3 | Implementada (login, dashboard, marcaje, horas extras, aprobaciones, perfil) |
 | IDE móvil | Android Studio | Instalado en `C:\Program Files\Android\Android Studio` |
-| Backend y base de datos | Supabase / PostgreSQL 17, RLS, Realtime | Migraciones `0001`-`0029` implementadas y validadas |
+| Backend y base de datos | Supabase / PostgreSQL 17, RLS, Realtime | Migraciones `0001`-`0030` implementadas y validadas |
 | Backend serverless | TypeScript sobre Deno (Supabase Edge Functions) | `invitar-usuario` implementada, verificada con `deno check` y 31 pruebas de integración |
 | Tooling | pnpm 12.16.1, Supabase CLI 3.0.0, Git, GitHub CLI | Instalado |
 | Herramientas internas | `db-validation` (PostgreSQL portátil) e `importar-ceco` (CSV → SQL idempotente) | Implementadas y probadas |
@@ -39,7 +39,7 @@ No existe autoelevación: `authenticated` solo tiene `SELECT` sobre `public.perf
 
 ## Estado del backend — MT-01
 
-> MT-01 cerrada en `main` el 2026-11-11 con el merge [#39](https://github.com/dgiron-2025071/AppCarrousel/pull/39) (`894f2b5`). El endurecimiento posterior (`0016`-`0022` y la Edge Function de invitación) sigue sobre `develop`. Los únicos pendientes de MT-01 son ambientales: desplegar la Edge Function con credenciales reales y ejecutar `supabase db reset` cuando Docker/WSL2 esté disponible.
+> MT-01 cerrada en `main` el 2026-11-11 con el merge [#39](https://github.com/dgiron-2025071/AppCarrousel/pull/39) (`894f2b5`). El endurecimiento posterior (`0016`-`0022` y la Edge Function de invitación) se liberó a `main` con el release MT-02 [#60](https://github.com/dgiron-2025071/AppCarrousel/pull/60) del 2026-11-16. Los únicos pendientes de MT-01 son ambientales: desplegar la Edge Function con credenciales reales y ejecutar `supabase db reset` cuando Docker/WSL2 esté disponible.
 
 - [x] **0001** Bootstrap: extensiones, schema `private`, enum `rol_usuario`, helpers JWT, auditoría y endurecimiento de grants.
 - [x] **0002** `empresas` + jerarquía dinámica de `centros_costo` + RLS por subárbol.
@@ -64,7 +64,7 @@ No existe autoelevación: `authenticated` solo tiene `SELECT` sobre `public.perf
 - [x] **0021** Revalidación al reasignar: cambiar el especialista o la empresa de una solicitud vuelve a exigir un revisor admin activo y distinto del especialista.
 - [x] **0022** Quitar los claims revoca el perfil: si `app_metadata` queda incompleto se desactiva el perfil existente, y restaurar los claims no reactiva una baja.
 - [x] Arnés de validación con PostgreSQL 17.9 portátil y emulación de roles/`auth` de Supabase.
-- [x] **345 pruebas automáticas OK, 0 fallos** (`pnpm --dir tools/db-validation test`).
+- [x] **346 pruebas automáticas OK, 0 fallos** (`pnpm --dir tools/db-validation test`).
 - [x] Invitación automática de administradores con Edge Function y `service_role` (`supabase/functions/invitar-usuario`).
 - [x] Verificación estática de la Edge Function con `deno check`, `deno lint` y `deno fmt --check`.
 - [x] **31 pruebas de integración de la Edge Function OK, 0 fallos** (`npx -y deno test -A supabase/functions/tests/invitar_usuario_test.ts`), con un Supabase falso local.
@@ -93,7 +93,7 @@ El detalle del contrato y los comandos de despliegue están en [`supabase/functi
 
 ## Estado del backend — MT-02
 
-> MT-02 se integra a `develop` con el PR [#56](https://github.com/dgiron-2025071/AppCarrousel/pull/56). Las migraciones `0023`-`0030` se validan con el mismo arnés de PostgreSQL real y conservan las reglas de `0001`-`0022`.
+> MT-02 se integra a `develop` con el PR [#56](https://github.com/dgiron-2025071/AppCarrousel/pull/56) y se libera por partes a `main` desde el release [#60](https://github.com/dgiron-2025071/AppCarrousel/pull/60), con el último release [#70](https://github.com/dgiron-2025071/AppCarrousel/pull/70) del 2026-11-17. Las migraciones `0023`-`0030` se validan con el mismo arnés de PostgreSQL real y conservan las reglas de `0001`-`0022`.
 
 - [x] **0023** `puestos` por empresa y `perfiles.puesto_id` materializado desde `app_metadata.puesto_id`. `centros_costo.jefe_id` designa al administrador responsable; `private.jefe_de_centro()` sube por `ruta` al jefe más cercano y `private.es_autorizador()` resuelve la cadena. El jefe debe ser un admin activo de la misma empresa, así que la firma de revisión de `0019`-`0021` sigue siendo válida.
 - [x] **0024** Horario semanal por empleado y día ISO (`horarios`), zona horaria IANA y umbral de precisión GPS por empresa, con `private.fecha_local()` y `private.horario_del_dia()` para calcular llegadas y salidas.
@@ -212,7 +212,7 @@ El arnés vive en `tools/db-validation` y usa `embedded-postgres` para ejecutar 
 pnpm --dir tools/db-validation test
 ```
 
-Cubre jerarquía dinámica y anti-ciclos, aislamiento por empresa, RLS de perfiles/centros/parques/jornadas/solicitudes, no autoelevación, geocerca con tolerancia GPS, una sola jornada abierta, coherencia de la revisión y prohibición de revisar solicitudes propias o ya revisadas. Las migraciones `0007`-`0022` añaden pruebas para el cierre de jornada con parque desactivado, el marcaje fuera del subárbol, los perfiles inactivos, la precisión GPS negativa, la revocación inmediata de lectura para un admin desactivado, el cierre de una jornada olvidada de más de 24 h, el retiro de solicitudes propias, la retención del historial ante el borrado de cuentas, el corte inmediato de acceso para una empresa inactiva, la degradación inmediata de un administrador, el cierre con una geocerca movida o redimensionada durante el turno, la integridad cross-tenant del empleado y del revisor, la revocación inmediata del alcance de un admin movido de subárbol, el rechazo de solicitudes de horas extras solapadas, la firma de la revisión por un administrador activo de la empresa, la revalidación del revisor al reasignar la solicitud y la revocación del perfil al quitar los claims. Las migraciones `0023`-`0030` suman puestos y autorizador jerárquico, horarios con zona horaria y umbral GPS, registro por código de empresa con sincronización del nombre visible, CECOs por lugar, incidencias y ajustes inmutables, reportes con RLS y el puesto declarado por la persona al registrarse. Además, el arnés falla si una tabla pública nueva no habilita RLS, si `anon` recibe escritura, si una función `SECURITY DEFINER` no fija `search_path` o si alguna función de `public`/`private` queda ejecutable por `PUBLIC`/`anon`. Resultado actual: **345 pruebas OK, 0 fallos**.
+Cubre jerarquía dinámica y anti-ciclos, aislamiento por empresa, RLS de perfiles/centros/parques/jornadas/solicitudes, no autoelevación, geocerca con tolerancia GPS, una sola jornada abierta, coherencia de la revisión y prohibición de revisar solicitudes propias o ya revisadas. Las migraciones `0007`-`0022` añaden pruebas para el cierre de jornada con parque desactivado, el marcaje fuera del subárbol, los perfiles inactivos, la precisión GPS negativa, la revocación inmediata de lectura para un admin desactivado, el cierre de una jornada olvidada de más de 24 h, el retiro de solicitudes propias, la retención del historial ante el borrado de cuentas, el corte inmediato de acceso para una empresa inactiva, la degradación inmediata de un administrador, el cierre con una geocerca movida o redimensionada durante el turno, la integridad cross-tenant del empleado y del revisor, la revocación inmediata del alcance de un admin movido de subárbol, el rechazo de solicitudes de horas extras solapadas, la firma de la revisión por un administrador activo de la empresa, la revalidación del revisor al reasignar la solicitud y la revocación del perfil al quitar los claims. Las migraciones `0023`-`0030` suman puestos y autorizador jerárquico, horarios con zona horaria y umbral GPS, registro por código de empresa con sincronización del nombre visible, CECOs por lugar, incidencias y ajustes inmutables, reportes con RLS y el puesto declarado por la persona al registrarse. Además, el arnés falla si una tabla pública nueva no habilita RLS, si `anon` recibe escritura, si una función `SECURITY DEFINER` no fija `search_path` o si alguna función de `public`/`private` queda ejecutable por `PUBLIC`/`anon`. Resultado actual: **346 pruebas OK, 0 fallos**.
 
 El SQL del importador de centros de costo se ejecuta en el mismo PostgreSQL real:
 
@@ -295,6 +295,8 @@ Las pruebas de integración levantan un servidor que emula Supabase Auth/PostgRE
 | 2026-11-17 | Release MT-02 - puesto declarado al registrarse | `develop` | [#68](https://github.com/dgiron-2025071/AppCarrousel/pull/68) | Mergeado a `main` | `flutter analyze`, 77 pruebas, 345 DB |
 | 2026-11-17 | App Flutter — scaffold web con menú lateral y tema claro/oscuro | `dgiron-2025071` | [#69](https://github.com/dgiron-2025071/AppCarrousel/pull/69) | Mergeado a `develop` | `flutter analyze`, 77 pruebas, build web |
 | 2026-11-17 | Release MT-02 — scaffold web con menú lateral y tema claro/oscuro | `develop` | [#70](https://github.com/dgiron-2025071/AppCarrousel/pull/70) | Mergeado a `main` | `flutter analyze`, 77 pruebas, build web |
+| 2026-11-17 | Cobertura de validación — umbral GPS 10–1000 y shell responsive | `dgiron-2025071` | [#71](https://github.com/dgiron-2025071/AppCarrousel/pull/71) | Mergeado a `develop` | `flutter analyze`, 81 pruebas, 346 DB |
+| 2026-11-17 | Release MT-02 — cobertura de validación y documentación | `develop` | [#72](https://github.com/dgiron-2025071/AppCarrousel/pull/72) | Mergeado a `main` | `flutter analyze`, 81 pruebas, 346 DB |
 
 > Nota de proceso: el PR #1 se creó como borrador y GitHub devolvió un error de GraphQL al intentar marcarlo como listo. Se cerró y se recreó como PR #2. El PR #14 no existe.
 
