@@ -12,12 +12,14 @@ class SupabaseRegistroRepository implements RegistroRepository {
   Future<String> solicitar({
     required String codigoEmpresa,
     required String nombreCompleto,
+    required String puesto,
   }) async {
     final id = await _client.rpc(
       'solicitar_registro',
       params: {
         'p_codigo_empresa': codigoEmpresa.trim(),
         'p_nombre_completo': nombreCompleto.trim(),
+        'p_puesto': puesto.trim(),
       },
     );
     return id as String;

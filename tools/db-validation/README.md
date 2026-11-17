@@ -23,6 +23,10 @@ La suite del arnés también ejecuta el SQL generado por
 valida la creación idempotente de la jerarquía, el renombrado y el aborto
 completo cuando falta un padre.
 
+En Windows con una sesión elevada, el arnés inicia el clúster con `pg_ctl` en
+lugar de lanzar `postgres.exe` directamente: PostgreSQL rechaza los tokens de
+administrador y `embedded-postgres` fallaba sin mensaje al hacerlo.
+
 - `PGPORT` permite cambiar el puerto (por defecto `55434`).
 - `--keep` conserva el directorio temporal del clúster para inspeccionarlo.
   Sin esa bandera el directorio se borra al terminar.
@@ -130,9 +134,14 @@ dejan datos ni privilegios modificados.
 - Registro por código: `solicitar_registro` valida el código de empresa, exige
   que el usuario aún no tenga perfil, sincroniza el nombre declarado a
   `user_metadata`, no acumula pendientes y permite reintentar tras un rechazo;
-  `aprobar_registro` siempre crea un `empleado`, fija centro y puesto dentro del
+  `aprobar_registro` siempre crea un `empleado`, fija el centro dentro del
   alcance y actualiza los claims; `rechazar_registro` exige un motivo. El cliente
   no inserta en `registros_pendientes`.
+- Puesto declarado: `solicitar_registro(text,text,text)` guarda `Especialista`
+  (normalizado) o el texto libre que escriba la persona; la RPC de dos
+  argumentos sigue declarando `Especialista`. Se valida longitud, la aprobación
+  copia el puesto a los claims y el trigger lo materializa en
+  `perfiles.puesto`.
 - CECO por lugar: `parques_centros` mantiene exactamente un principal por
   parque, sincronizado con `parques.centro_costo_id`; mover el parque desactiva
   el principal anterior y activa el nuevo conservando el historial. La solicitud
@@ -161,7 +170,7 @@ dejan datos ni privilegios modificados.
   las vistas de reporte.
 - Auditoría: `actualizado_en` y `actualizado_por`.
 
-Resultado actual: **338 pruebas OK, 0 FAIL**.
+Resultado actual: **345 pruebas OK, 0 FAIL**.
 
 ## Límites
 

@@ -10,6 +10,7 @@ void main() {
         'empresa_id': 'e1',
         'email': 'ana@example.com',
         'nombre_completo': 'Ana Pérez',
+        'puesto': 'Especialista',
         'estado': 'rechazado',
         'creado_en': '2026-11-10T12:00:00Z',
         'motivo_rechazo': 'El nombre no coincide con la planilla.',
@@ -20,6 +21,7 @@ void main() {
       expect(registro.empresaId, 'e1');
       expect(registro.email, 'ana@example.com');
       expect(registro.nombreCompleto, 'Ana Pérez');
+      expect(registro.puesto, 'Especialista');
       expect(registro.estado, EstadoMiRegistro.rechazado);
       expect(registro.rechazado, isTrue);
       expect(registro.motivoRechazo, isNotNull);
@@ -32,11 +34,13 @@ void main() {
         'empresa_id': 'e1',
         'email': 'ana@example.com',
         'nombre_completo': 'Ana Pérez',
+        'puesto': 'Atención al cliente',
         'estado': 'pendiente',
         'creado_en': '2026-11-10T12:00:00Z',
       });
 
       expect(registro.estado, EstadoMiRegistro.pendiente);
+      expect(registro.puesto, 'Atención al cliente');
       expect(registro.pendiente, isTrue);
       expect(registro.motivoRechazo, isNull);
       expect(registro.revisadoEn, isNull);

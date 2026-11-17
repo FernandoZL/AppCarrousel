@@ -24,6 +24,7 @@ class RegistroPendiente {
     required this.email,
     required this.nombreCompleto,
     required this.estado,
+    this.puesto,
     required this.creadoEn,
     this.centroCostoId,
     this.puestoId,
@@ -37,6 +38,7 @@ class RegistroPendiente {
   final String usuarioId;
   final String email;
   final String nombreCompleto;
+  final String? puesto;
   final EstadoRegistro estado;
   final DateTime creadoEn;
   final String? centroCostoId;

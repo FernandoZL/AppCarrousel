@@ -26,6 +26,7 @@ class MiRegistro {
     required this.email,
     required this.nombreCompleto,
     required this.estado,
+    this.puesto,
     required this.creadoEn,
     this.motivoRechazo,
     this.revisadoEn,
@@ -35,6 +36,7 @@ class MiRegistro {
   final String empresaId;
   final String email;
   final String nombreCompleto;
+  final String? puesto;
   final EstadoMiRegistro estado;
   final DateTime creadoEn;
   final String? motivoRechazo;

@@ -7,6 +7,7 @@ RegistroPendiente registroPendienteDesdeMapa(Map<String, dynamic> map) =>
       usuarioId: map['usuario_id'] as String,
       email: map['email'] as String,
       nombreCompleto: map['nombre_completo'] as String,
+      puesto: map['puesto'] as String?,
       estado: EstadoRegistro.parse(map['estado'] as String?),
       creadoEn: DateTime.parse(map['creado_en'] as String).toLocal(),
       centroCostoId: map['centro_costo_id'] as String?,
