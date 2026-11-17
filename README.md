@@ -64,7 +64,7 @@ No existe autoelevación: `authenticated` solo tiene `SELECT` sobre `public.perf
 - [x] **0021** Revalidación al reasignar: cambiar el especialista o la empresa de una solicitud vuelve a exigir un revisor admin activo y distinto del especialista.
 - [x] **0022** Quitar los claims revoca el perfil: si `app_metadata` queda incompleto se desactiva el perfil existente, y restaurar los claims no reactiva una baja.
 - [x] Arnés de validación con PostgreSQL 17.9 portátil y emulación de roles/`auth` de Supabase.
-- [x] **338 pruebas automáticas OK, 0 fallos** (`pnpm --dir tools/db-validation test`).
+- [x] **345 pruebas automáticas OK, 0 fallos** (`pnpm --dir tools/db-validation test`).
 - [x] Invitación automática de administradores con Edge Function y `service_role` (`supabase/functions/invitar-usuario`).
 - [x] Verificación estática de la Edge Function con `deno check`, `deno lint` y `deno fmt --check`.
 - [x] **31 pruebas de integración de la Edge Function OK, 0 fallos** (`npx -y deno test -A supabase/functions/tests/invitar_usuario_test.ts`), con un Supabase falso local.
@@ -93,15 +93,16 @@ El detalle del contrato y los comandos de despliegue están en [`supabase/functi
 
 ## Estado del backend — MT-02
 
-> MT-02 se integra a `develop` con el PR [#56](https://github.com/dgiron-2025071/AppCarrousel/pull/56). Las migraciones `0023`-`0029` se validan con el mismo arnés de PostgreSQL real y conservan las reglas de `0001`-`0022`.
+> MT-02 se integra a `develop` con el PR [#56](https://github.com/dgiron-2025071/AppCarrousel/pull/56). Las migraciones `0023`-`0030` se validan con el mismo arnés de PostgreSQL real y conservan las reglas de `0001`-`0022`.
 
 - [x] **0023** `puestos` por empresa y `perfiles.puesto_id` materializado desde `app_metadata.puesto_id`. `centros_costo.jefe_id` designa al administrador responsable; `private.jefe_de_centro()` sube por `ruta` al jefe más cercano y `private.es_autorizador()` resuelve la cadena. El jefe debe ser un admin activo de la misma empresa, así que la firma de revisión de `0019`-`0021` sigue siendo válida.
 - [x] **0024** Horario semanal por empleado y día ISO (`horarios`), zona horaria IANA y umbral de precisión GPS por empresa, con `private.fecha_local()` y `private.horario_del_dia()` para calcular llegadas y salidas.
-- [x] **0025** Registro propio con código de empresa: `registros_pendientes` y las RPC `solicitar_registro`, `aprobar_registro` y `rechazar_registro`. El alta siempre nace como `empleado`; el admin asignador fija centro y puesto dentro de su alcance y el trigger de Auth materializa el perfil.
+- [x] **0025** Registro propio con código de empresa: `registros_pendientes` y las RPC `solicitar_registro`, `aprobar_registro` y `rechazar_registro`. El alta siempre nace como `empleado`; el admin asignador fija el centro dentro de su alcance y el trigger de Auth materializa el perfil.
 - [x] **0026** CECOs adicionales por lugar (`parques_centros`): backfill del CECO principal, sincronización al mover el parque conservando las filas históricas, FK compuesta y `solicitudes_horas_extras.parque_id`. El formulario elige primero el lugar y luego un CECO habilitado para ese lugar.
 - [x] **0027** Incidencias automáticas (`llegada_tarde`, `salida_temprana`, `parque_distinto`, `gps_impreciso`), historial inmutable `jornadas_ajustes` y RPC `ajustar_jornada` con motivo obligatorio. El ajuste administrativo no revalida la geocerca porque corrige tiempos, no marcajes.
 - [x] **0028** Vistas `reporte_horas_extras` y `cumplimiento_jornadas` con `security_invoker = true` para heredar la RLS de las tablas base y permitir exportaciones sin lógica de permisos duplicada.
 - [x] **0029** El alta sincroniza el nombre declarado a `user_metadata` dentro de `solicitar_registro`, para que el trigger del perfil use ese nombre y no el prefijo del correo. No toca `app_metadata` ni la autorización.
+- [x] **0030** Puesto declarado al registrarse: `Especialista` o texto libre escrito por la persona (`Otro`). Se guarda en `registros_pendientes.puesto`, se conserva en los claims al aprobar y se materializa en `perfiles.puesto`. La RPC de dos argumentos sigue equivaliendo a `Especialista` para clientes antiguos.
 - [x] Pruebas de estructura y funcionales: 12 tablas de negocio con RLS, cobertura de políticas por tabla, aislamiento cross-tenant, autorizador jerárquico, sincronización de puesto, registro por código, CECO por lugar, incidencias, inmutabilidad de ajustes y reportes con RLS.
 
 ## Aplicación móvil
@@ -111,18 +112,17 @@ La app arranca siempre en la pantalla de inicio de sesión: **no hay usuarios ni
 ### Funcionalidad implementada
 
 - **Login** con correo/contraseña, **creación de cuenta**, recuperación de contraseña y **Continuar con Google** (OAuth con PKCE y deep link).
-- **Registro propio con código de empresa:** la cuenta recién creada solicita el alta, ve el estado pendiente, el motivo si fue rechazada y puede reintentarlo. Al aprobarse, la app refresca la sesión para cargar el perfil; el rol final siempre es `empleado`.
+- **Registro propio con código de empresa:** la cuenta recién creada solicita el alta declarando su puesto: `Especialista` o `Otro` con el texto que la persona escriba. Ve el estado pendiente con el puesto declarado, el motivo si fue rechazada y puede reintentarlo. Al aprobarse, la app refresca la sesión para cargar el perfil; el rol final siempre es `empleado`.
 - **Dashboard del empleado** con horas de hoy, semana y mes, jornada en curso y últimos marcajes; se actualiza con Realtime.
 - **Marcaje de entrada/salida** con `flutter_map` + OpenStreetMap, GPS nativo y selección del parque. El mapa usa `InteractiveFlag.none`; la geocerca se valida en PostgreSQL. Si el parque se desactiva durante el turno, la app conserva ese parque para poder cerrar la jornada y no lo ofrece para nuevas entradas. Si el administrador mueve o redimensiona el parque, el cierre se valida contra la geocerca guardada al entrar.
 - **Horas extras:** rango de horas, lugar (parque) y centro de costo habilitado para ese lugar, más la justificación. El formulario elige primero el lugar y luego su CECO; la solicitud nace `pendiente`.
 - **Historial propio** de solicitudes con estado, comentario del administrador y actualización en tiempo real. El especialista puede retirar una solicitud mientras siga pendiente; la cancelación conserva el historial.
 - **Mi horario:** vista semanal de los siete días con turno, tolerancias y aviso de turno nocturno.
 - **Aprobaciones del admin:** solicitudes del subárbol con nombre del especialista, justificación, lugar, centro de costo y comentario opcional al aprobar o rechazar. El resultado le llega al especialista por Realtime.
-- **Altas con código de empresa (admin):** bandeja de `registros_pendientes`; al aprobar se asigna centro de costo y, opcionalmente, un puesto activo. La cuenta queda siempre como empleado.
+- **Altas con código de empresa (admin):** bandeja de `registros_pendientes` con el puesto declarado por cada solicitante; al aprobar solo se asigna el centro de costo. La cuenta queda siempre como empleado y conserva el puesto declarado.
 - **Jornadas del equipo (admin):** cumplimiento por jornada con horario programado, minutos de llegada tarde o salida temprana, incidencias automáticas y ajuste con motivo obligatorio. Cada tarjeta permite consultar el historial inmutable de correcciones, con motivo, valores anterior/nuevo y fecha.
 - **Horarios del equipo (admin):** alta, edición y borrado del horario semanal por integrante y día ISO, con tolerancias de entrada y salida.
 - **Centros por lugar (admin):** habilitar CECOs adicionales por parque, activarlos o desactivarlos; el principal se conserva y solo se cambia desde el parque.
-- **Puestos (admin):** catálogo por empresa con código único, nombre, descripción y estado. El administrador crea, edita, activa/desactiva y elimina puestos; los inactivos dejan de ofrecerse al aprobar altas.
 - **Configuración de la empresa (admin):** zona horaria IANA (validada por PostgreSQL) y umbral de precisión GPS (10–1000 m) que define cuándo un marcaje se reporta como impreciso.
 - **Reportes (admin):** filtro por estado, totales de horas aprobadas y pendientes, y exportación CSV al portapapeles generada en dominio puro.
 - **Apariencia:** tema claro, oscuro o automático desde el perfil (sin persistencia en disco).
@@ -139,11 +139,11 @@ apps/mobile/lib/
 └── features/
     ├── auth/        # domain (entidades, contratos, casos de uso) / data / presentation
     ├── registro/    # alta propia con código de empresa
-    ├── catalogo/    # centros de costo, parques y puestos
+    ├── catalogo/    # centros de costo y parques
     ├── jornada/     # marcaje, jornadas y utilidades de geocerca
     ├── solicitudes/ # horas extras del especialista
     ├── horario/     # horario semanal propio y del equipo
-    ├── equipo/      # altas, jornadas, horarios, CECOs por lugar, puestos y reportes (admin)
+    ├── equipo/      # altas, jornadas, horarios, CECOs por lugar y reportes (admin)
     ├── configuracion/ # zona horaria y umbral de GPS de la empresa (admin)
     ├── admin/       # aprobaciones, invitaciones y controladores
     ├── dashboard/   # resumen del empleado
@@ -201,7 +201,7 @@ El arnés vive en `tools/db-validation` y usa `embedded-postgres` para ejecutar 
 pnpm --dir tools/db-validation test
 ```
 
-Cubre jerarquía dinámica y anti-ciclos, aislamiento por empresa, RLS de perfiles/centros/parques/jornadas/solicitudes, no autoelevación, geocerca con tolerancia GPS, una sola jornada abierta, coherencia de la revisión y prohibición de revisar solicitudes propias o ya revisadas. Las migraciones `0007`-`0022` añaden pruebas para el cierre de jornada con parque desactivado, el marcaje fuera del subárbol, los perfiles inactivos, la precisión GPS negativa, la revocación inmediata de lectura para un admin desactivado, el cierre de una jornada olvidada de más de 24 h, el retiro de solicitudes propias, la retención del historial ante el borrado de cuentas, el corte inmediato de acceso para una empresa inactiva, la degradación inmediata de un administrador, el cierre con una geocerca movida o redimensionada durante el turno, la integridad cross-tenant del empleado y del revisor, la revocación inmediata del alcance de un admin movido de subárbol, el rechazo de solicitudes de horas extras solapadas, la firma de la revisión por un administrador activo de la empresa, la revalidación del revisor al reasignar la solicitud y la revocación del perfil al quitar los claims. Las migraciones `0023`-`0029` suman puestos y autorizador jerárquico, horarios con zona horaria y umbral GPS, registro por código de empresa con sincronización del nombre visible, CECOs por lugar, incidencias y ajustes inmutables, y reportes con RLS. Además, el arnés falla si una tabla pública nueva no habilita RLS, si `anon` recibe escritura, si una función `SECURITY DEFINER` no fija `search_path` o si alguna función de `public`/`private` queda ejecutable por `PUBLIC`/`anon`. Resultado actual: **338 pruebas OK, 0 fallos**.
+Cubre jerarquía dinámica y anti-ciclos, aislamiento por empresa, RLS de perfiles/centros/parques/jornadas/solicitudes, no autoelevación, geocerca con tolerancia GPS, una sola jornada abierta, coherencia de la revisión y prohibición de revisar solicitudes propias o ya revisadas. Las migraciones `0007`-`0022` añaden pruebas para el cierre de jornada con parque desactivado, el marcaje fuera del subárbol, los perfiles inactivos, la precisión GPS negativa, la revocación inmediata de lectura para un admin desactivado, el cierre de una jornada olvidada de más de 24 h, el retiro de solicitudes propias, la retención del historial ante el borrado de cuentas, el corte inmediato de acceso para una empresa inactiva, la degradación inmediata de un administrador, el cierre con una geocerca movida o redimensionada durante el turno, la integridad cross-tenant del empleado y del revisor, la revocación inmediata del alcance de un admin movido de subárbol, el rechazo de solicitudes de horas extras solapadas, la firma de la revisión por un administrador activo de la empresa, la revalidación del revisor al reasignar la solicitud y la revocación del perfil al quitar los claims. Las migraciones `0023`-`0030` suman puestos y autorizador jerárquico, horarios con zona horaria y umbral GPS, registro por código de empresa con sincronización del nombre visible, CECOs por lugar, incidencias y ajustes inmutables, reportes con RLS y el puesto declarado por la persona al registrarse. Además, el arnés falla si una tabla pública nueva no habilita RLS, si `anon` recibe escritura, si una función `SECURITY DEFINER` no fija `search_path` o si alguna función de `public`/`private` queda ejecutable por `PUBLIC`/`anon`. Resultado actual: **345 pruebas OK, 0 fallos**.
 
 El SQL del importador de centros de costo se ejecuta en el mismo PostgreSQL real:
 
@@ -280,6 +280,8 @@ Las pruebas de integración levantan un servidor que emula Supabase Auth/PostgRE
 | 2026-11-17 | Release MT-02 - puestos y configuración de empresa | `develop` | [#64](https://github.com/dgiron-2025071/AppCarrousel/pull/64) | Mergeado a `main` | `flutter analyze`, 74 pruebas |
 | 2026-11-17 | App Flutter - historial de ajustes de jornada | `dgiron-2025071` | [#65](https://github.com/dgiron-2025071/AppCarrousel/pull/65) | Mergeado a `develop` | `flutter analyze`, 78 pruebas |
 | 2026-11-17 | Release MT-02 - historial de ajustes de jornada | `develop` | [#66](https://github.com/dgiron-2025071/AppCarrousel/pull/66) | Mergeado a `main` | `flutter analyze`, 78 pruebas |
+| 2026-11-17 | App Flutter - puesto declarado al registrarse | `dgiron-2025071` | [#67](https://github.com/dgiron-2025071/AppCarrousel/pull/67) | Mergeado a `develop` | `flutter analyze`, 77 pruebas, 345 DB |
+| 2026-11-17 | Release MT-02 - puesto declarado al registrarse | `develop` | [#68](https://github.com/dgiron-2025071/AppCarrousel/pull/68) | Mergeado a `main` | `flutter analyze`, 77 pruebas, 345 DB |
 
 > Nota de proceso: el PR #1 se creó como borrador y GitHub devolvió un error de GraphQL al intentar marcarlo como listo. Se cerró y se recreó como PR #2. El PR #14 no existe.
 

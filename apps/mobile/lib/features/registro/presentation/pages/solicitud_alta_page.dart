@@ -31,6 +31,8 @@ class _SolicitudAltaPageState extends ConsumerState<SolicitudAltaPage> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nombre;
   final _codigo = TextEditingController();
+  final _puesto = TextEditingController();
+  String _tipoPuesto = 'especialista';
   bool _enviando = false;
   bool _actualizando = false;
   bool _mostrarFormulario = false;
@@ -46,8 +48,12 @@ class _SolicitudAltaPageState extends ConsumerState<SolicitudAltaPage> {
   void dispose() {
     _nombre.dispose();
     _codigo.dispose();
+    _puesto.dispose();
     super.dispose();
   }
+
+  String get _puestoDeclarado =>
+      _tipoPuesto == 'especialista' ? 'Especialista' : _puesto.text.trim();
 
   Future<void> _enviar() async {
     FocusScope.of(context).unfocus();
@@ -62,6 +68,7 @@ class _SolicitudAltaPageState extends ConsumerState<SolicitudAltaPage> {
       await ref.read(solicitarRegistroProvider)(
         codigoEmpresa: _codigo.text,
         nombreCompleto: _nombre.text,
+        puesto: _puestoDeclarado,
       );
       if (!mounted) return;
       setState(() {
@@ -237,6 +244,54 @@ class _SolicitudAltaPageState extends ConsumerState<SolicitudAltaPage> {
             },
           ),
           const SizedBox(height: 14),
+          Text(
+            'Puesto',
+            style: Theme.of(context).textTheme.labelLarge
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          RadioGroup<String>(
+            groupValue: _tipoPuesto,
+            onChanged: (valor) =>
+                setState(() => _tipoPuesto = valor ?? 'especialista'),
+            child: Column(
+              children: const [
+                RadioListTile<String>(
+                  title: Text('Especialista'),
+                  value: 'especialista',
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                RadioListTile<String>(
+                  title: Text('Otro'),
+                  subtitle: Text('Escribe el puesto que tienes.'),
+                  value: 'otro',
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ],
+            ),
+          ),
+          if (_tipoPuesto == 'otro') ...[
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _puesto,
+              textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.next,
+              maxLength: 120,
+              autofillHints: const [AutofillHints.jobTitle],
+              decoration: const InputDecoration(
+                labelText: 'Tu puesto',
+                prefixIcon: Icon(Icons.badge_outlined),
+              ),
+              validator: (valor) {
+                final texto = valor?.trim() ?? '';
+                if (texto.isEmpty) return 'Escribe tu puesto.';
+                if (texto.length > 120) return 'Usa máximo 120 caracteres.';
+                return null;
+              },
+            ),
+          ],
+          const SizedBox(height: 14),
           TextFormField(
             controller: _codigo,
             textCapitalization: TextCapitalization.characters,
@@ -294,6 +349,7 @@ class _SolicitudAltaPageState extends ConsumerState<SolicitudAltaPage> {
           titulo: 'Solicitud en revisión',
           mensaje:
               'Tu solicitud fue enviada el ${_fecha(registro.creadoEn)}. '
+              'Puesto declarado: ${registro.puesto ?? 'Especialista'}.\n\n'
               'Cuando un administrador la apruebe podrás entrar a la app.',
         ),
         const SizedBox(height: 18),

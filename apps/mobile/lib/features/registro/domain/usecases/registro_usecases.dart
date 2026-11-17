@@ -9,9 +9,11 @@ class SolicitarRegistro {
   Future<String> call({
     required String codigoEmpresa,
     required String nombreCompleto,
+    required String puesto,
   }) => _repo.solicitar(
     codigoEmpresa: codigoEmpresa,
     nombreCompleto: nombreCompleto,
+    puesto: puesto,
   );
 }
 

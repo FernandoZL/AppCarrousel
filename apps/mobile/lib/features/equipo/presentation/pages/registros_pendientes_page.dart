@@ -5,7 +5,6 @@ import 'package:carrousel_app/core/errors/error_messages.dart';
 import 'package:carrousel_app/core/utils/duraciones.dart';
 import 'package:carrousel_app/core/widgets/estado_widgets.dart';
 import 'package:carrousel_app/features/catalogo/domain/entities/centro_costo.dart';
-import 'package:carrousel_app/features/catalogo/domain/entities/puesto.dart';
 import 'package:carrousel_app/features/catalogo/presentation/providers/catalogo_providers.dart';
 import 'package:carrousel_app/features/equipo/domain/entities/registro_pendiente.dart';
 import 'package:carrousel_app/features/equipo/presentation/providers/equipo_providers.dart';
@@ -30,17 +29,9 @@ class RegistrosPendientesPage extends ConsumerWidget {
       return;
     }
 
-    final puestos = (ref.read(puestosProvider).valueOrNull ?? const <Puesto>[])
-        .where((puesto) => puesto.activo)
-        .toList(growable: false);
-
     final resultado = await showDialog<_Aprobacion>(
       context: context,
-      builder: (_) => _DialogoAprobar(
-        registro: registro,
-        centros: centros,
-        puestos: puestos,
-      ),
+      builder: (_) => _DialogoAprobar(registro: registro, centros: centros),
     );
     if (resultado == null || !context.mounted) return;
 
@@ -48,7 +39,6 @@ class RegistrosPendientesPage extends ConsumerWidget {
       await ref.read(aprobarRegistroProvider)(
         registroId: registro.id,
         centroCostoId: resultado.centroCostoId,
-        puestoId: resultado.puestoId,
       );
       ref.invalidate(registrosPendientesProvider);
       ref.invalidate(nombresPerfilesProvider);
@@ -235,6 +225,11 @@ class _TarjetaRegistro extends StatelessWidget {
             'Solicitado ${formatearFechaHora(registro.creadoEn)}',
             style: TextStyle(fontSize: 12, color: colores.onSurfaceVariant),
           ),
+          const SizedBox(height: 4),
+          Text(
+            'Puesto declarado: ${registro.puesto ?? 'Especialista'}',
+            style: TextStyle(fontSize: 12, color: colores.onSurfaceVariant),
+          ),
           const SizedBox(height: 14),
           Row(
             children: [
@@ -269,22 +264,16 @@ class _TarjetaRegistro extends StatelessWidget {
 }
 
 class _Aprobacion {
-  const _Aprobacion({required this.centroCostoId, this.puestoId});
+  const _Aprobacion({required this.centroCostoId});
 
   final String centroCostoId;
-  final String? puestoId;
 }
 
 class _DialogoAprobar extends StatefulWidget {
-  const _DialogoAprobar({
-    required this.registro,
-    required this.centros,
-    required this.puestos,
-  });
+  const _DialogoAprobar({required this.registro, required this.centros});
 
   final RegistroPendiente registro;
   final List<CentroCosto> centros;
-  final List<Puesto> puestos;
 
   @override
   State<_DialogoAprobar> createState() => _DialogoAprobarState();
@@ -292,7 +281,6 @@ class _DialogoAprobar extends StatefulWidget {
 
 class _DialogoAprobarState extends State<_DialogoAprobar> {
   String? _centroId;
-  String _puestoId = '';
 
   @override
   void initState() {
@@ -316,6 +304,11 @@ class _DialogoAprobarState extends State<_DialogoAprobar> {
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),
             Text(widget.registro.email, style: const TextStyle(fontSize: 12)),
+            const SizedBox(height: 8),
+            Text(
+              'Puesto declarado: ${widget.registro.puesto ?? 'Especialista'}',
+              style: const TextStyle(fontSize: 12),
+            ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               initialValue: _centroId,
@@ -333,26 +326,6 @@ class _DialogoAprobarState extends State<_DialogoAprobar> {
               ],
               onChanged: (valor) => setState(() => _centroId = valor),
             ),
-            if (widget.puestos.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: _puestoId,
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: 'Puesto (opcional)',
-                  prefixIcon: Icon(Icons.badge_outlined),
-                ),
-                items: [
-                  const DropdownMenuItem(value: '', child: Text('Sin puesto')),
-                  for (final puesto in widget.puestos)
-                    DropdownMenuItem(
-                      value: puesto.id,
-                      child: Text('${puesto.nombre} · ${puesto.codigo}'),
-                    ),
-                ],
-                onChanged: (valor) => setState(() => _puestoId = valor ?? ''),
-              ),
-            ],
             const SizedBox(height: 12),
             const Text(
               'La cuenta se aprobará siempre con rol Empleado. Después podrás '
@@ -370,12 +343,9 @@ class _DialogoAprobarState extends State<_DialogoAprobar> {
         FilledButton(
           onPressed: _centroId == null
               ? null
-              : () => Navigator.of(context).pop(
-                  _Aprobacion(
-                    centroCostoId: _centroId!,
-                    puestoId: _puestoId.isEmpty ? null : _puestoId,
-                  ),
-                ),
+              : () =>
+                    Navigator.of(context)
+                        .pop(_Aprobacion(centroCostoId: _centroId!)),
           child: const Text('Aprobar'),
         ),
       ],

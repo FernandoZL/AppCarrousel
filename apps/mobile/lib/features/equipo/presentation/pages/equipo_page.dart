@@ -5,7 +5,6 @@ import 'package:carrousel_app/features/configuracion/presentation/pages/configur
 import 'package:carrousel_app/features/equipo/presentation/pages/cumplimiento_page.dart';
 import 'package:carrousel_app/features/equipo/presentation/pages/horarios_equipo_page.dart';
 import 'package:carrousel_app/features/equipo/presentation/pages/lugares_page.dart';
-import 'package:carrousel_app/features/equipo/presentation/pages/puestos_page.dart';
 import 'package:carrousel_app/features/equipo/presentation/pages/registros_pendientes_page.dart';
 import 'package:carrousel_app/features/equipo/presentation/pages/reportes_page.dart';
 
@@ -19,7 +18,6 @@ class EquipoPage extends StatelessWidget {
     'Jornadas',
     'Horarios',
     'Lugares',
-    'Puestos',
     'Reportes',
     'Configuración',
   ];
@@ -48,7 +46,6 @@ class EquipoPage extends StatelessWidget {
                 CumplimientoPage(),
                 HorariosEquipoPage(),
                 LugaresPage(),
-                PuestosPage(),
                 ReportesPage(),
                 ConfiguracionEmpresaPage(),
               ],
