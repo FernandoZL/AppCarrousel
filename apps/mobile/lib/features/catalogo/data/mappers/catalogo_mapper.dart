@@ -1,6 +1,7 @@
 import 'package:carrousel_app/features/catalogo/domain/entities/centro_costo.dart';
 import 'package:carrousel_app/features/catalogo/domain/entities/parque.dart';
 import 'package:carrousel_app/features/catalogo/domain/entities/parque_centro.dart';
+import 'package:carrousel_app/features/catalogo/domain/entities/puesto.dart';
 
 CentroCosto centroCostoDesdeMapa(Map<String, dynamic> map) => CentroCosto(
   id: map['id'] as String,
@@ -27,5 +28,14 @@ ParqueCentro parqueCentroDesdeMapa(Map<String, dynamic> map) => ParqueCentro(
   parqueId: map['parque_id'] as String,
   centroCostoId: map['centro_costo_id'] as String,
   principal: map['principal'] as bool? ?? false,
+  activo: map['activo'] as bool? ?? true,
+);
+
+Puesto puestoDesdeMapa(Map<String, dynamic> map) => Puesto(
+  id: map['id'] as String,
+  empresaId: map['empresa_id'] as String,
+  codigo: map['codigo'] as String? ?? '',
+  nombre: map['nombre'] as String,
+  descripcion: map['descripcion'] as String?,
   activo: map['activo'] as bool? ?? true,
 );

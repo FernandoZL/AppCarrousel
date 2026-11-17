@@ -4,6 +4,7 @@ import 'package:carrousel_app/features/catalogo/domain/entities/centro_costo.dar
 import 'package:carrousel_app/features/catalogo/domain/entities/lugar_catalogo.dart';
 import 'package:carrousel_app/features/catalogo/domain/entities/parque.dart';
 import 'package:carrousel_app/features/catalogo/domain/entities/parque_centro.dart';
+import 'package:carrousel_app/features/catalogo/domain/entities/puesto.dart';
 import 'package:carrousel_app/features/catalogo/domain/repositories/catalogo_repository.dart';
 import 'package:carrousel_app/features/catalogo/domain/usecases/catalogo_usecases.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -39,3 +40,19 @@ final lugaresProvider = FutureProvider.autoDispose<List<LugarCatalogo>>((
 ) async {
   return ListarLugares(ref.watch(catalogoRepositoryProvider))();
 });
+
+final puestosProvider = FutureProvider.autoDispose<List<Puesto>>((ref) async {
+  return ListarPuestos(ref.watch(catalogoRepositoryProvider))();
+});
+
+final crearPuestoProvider = Provider<CrearPuesto>(
+  (ref) => CrearPuesto(ref.watch(catalogoRepositoryProvider)),
+);
+
+final actualizarPuestoProvider = Provider<ActualizarPuesto>(
+  (ref) => ActualizarPuesto(ref.watch(catalogoRepositoryProvider)),
+);
+
+final eliminarPuestoProvider = Provider<EliminarPuesto>(
+  (ref) => EliminarPuesto(ref.watch(catalogoRepositoryProvider)),
+);
