@@ -2,22 +2,28 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:carrousel_app/core/theme/app_theme.dart';
 import 'package:carrousel_app/core/theme/theme_provider.dart';
+import 'package:carrousel_app/core/widgets/ecosistema.dart';
 import 'package:carrousel_app/features/auth/domain/entities/perfil.dart';
+import 'package:carrousel_app/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:carrousel_app/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:carrousel_app/features/equipo/presentation/pages/equipo_page.dart';
 import 'package:carrousel_app/features/horario/presentation/pages/mi_horario_page.dart';
 import 'package:carrousel_app/features/perfil/presentation/pages/perfil_page.dart';
 import 'package:carrousel_app/features/solicitudes/presentation/pages/solicitudes_page.dart';
 
-/// Contenedor principal después del login.
+/// Contenedor principal después del login, con el shell del Ecosistema
+/// Carrousel v1.7.0: franja de marca, menú lateral azul marino, barra
+/// superior con sección y página, y pie corporativo.
 ///
 /// En web usa siempre `NavigationRail` lateral; en móvil, `NavigationBar`. En
-/// pantallas anchas el rail se extiende desde 1100 px. El empleado ve Inicio,
-/// Horario, Horas extras y Perfil; el administrador suma Equipo. El AppBar
-/// permite alternar entre tema claro y oscuro sin salir de la pantalla. El
-/// parámetro [esWeb] solo se usa en pruebas para forzar la rama de navegación
-/// lateral sin depender de un navegador real.
+/// pantallas anchas el rail se extiende desde 1100 px y el botón ☰ lo
+/// colapsa a un riel de íconos. El empleado ve Inicio, Horario, Horas extras
+/// y Perfil; el administrador suma Equipo. La barra superior permite alternar
+/// entre tema claro y oscuro sin salir de la pantalla. El parámetro [esWeb]
+/// solo se usa en pruebas para forzar la rama de navegación lateral sin
+/// depender de un navegador real.
 class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key, required this.perfil, this.esWeb});
 
@@ -34,6 +40,32 @@ class HomeShell extends ConsumerStatefulWidget {
 class _HomeShellState extends ConsumerState<HomeShell> {
   int _indice = 0;
 
+  /// Menú colapsado a riel de íconos en escritorio (solo esta sesión).
+  bool _colapsado = false;
+
+  Future<void> _salir() async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (dialogo) => AlertDialog(
+        title: const Text('Cerrar sesión'),
+        content: const Text('¿Quieres salir de Carrousel en este dispositivo?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogo).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogo).pop(true),
+            child: const Text('Cerrar sesión'),
+          ),
+        ],
+      ),
+    );
+    if (confirmado == true) {
+      await ref.read(authControllerProvider.notifier).cerrarSesion();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final esAdmin = widget.perfil.esAdmin;
@@ -42,6 +74,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         modo == ThemeMode.dark ||
         (modo == ThemeMode.system &&
             Theme.of(context).brightness == Brightness.dark);
+    final colores = ColoresCarrousel.of(context);
     final paginas = <Widget>[
       const DashboardPage(),
       const MiHorarioPage(),
@@ -84,24 +117,70 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       builder: (context, constraints) {
         final ancho = constraints.maxWidth;
         final usarRail = (widget.esWeb ?? kIsWeb) || ancho >= 900;
-        final extendido = ancho >= 1100;
+        final puedeExtender = ancho >= 1100;
+        final extendido = puedeExtender && !_colapsado;
+        final barraCompleta = ancho >= 760;
 
-        return Scaffold(
+        final botonTema = IconButton(
+          icon: Icon(
+            esOscuro ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+            size: 20,
+          ),
+          tooltip: esOscuro ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro',
+          style: _estiloBotonBarra(colores, soloIcono: true),
+          onPressed: () => ref.read(temaProvider.notifier).state = esOscuro
+              ? ThemeMode.light
+              : ThemeMode.dark,
+        );
+
+        final scaffold = Scaffold(
           appBar: AppBar(
-            title: Text(titulos[indice]),
+            automaticallyImplyLeading: false,
+            titleSpacing: usarRail && puedeExtender ? 8 : 20,
+            leading: usarRail && puedeExtender
+                ? Padding(
+                    padding: const EdgeInsets.only(left: 12),
+                    child: Center(
+                      child: IconButton(
+                        icon: const Icon(Icons.menu_rounded, size: 20),
+                        tooltip: _colapsado ? 'Expandir menú' : 'Contraer menú',
+                        style: _estiloBotonBarra(colores, soloIcono: true),
+                        onPressed: () =>
+                            setState(() => _colapsado = !_colapsado),
+                      ),
+                    ),
+                  )
+                : null,
+            leadingWidth: usarRail && puedeExtender ? 60 : null,
+            title: TituloBarraSuperior(
+              seccion: 'Carrousel $nombreApp',
+              pagina: titulos[indice],
+            ),
             actions: [
-              IconButton(
-                icon: Icon(
-                  esOscuro
-                      ? Icons.light_mode_outlined
-                      : Icons.dark_mode_outlined,
+              botonTema,
+              if (barraCompleta) ...[
+                const SizedBox(width: 10),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 220),
+                  child: Text(
+                    widget.perfil.nombreCompleto,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: colores.ink,
+                    ),
+                  ),
                 ),
-                tooltip: esOscuro
-                    ? 'Cambiar a tema claro'
-                    : 'Cambiar a tema oscuro',
-                onPressed: () => ref.read(temaProvider.notifier).state =
-                    esOscuro ? ThemeMode.light : ThemeMode.dark,
-              ),
+                const SizedBox(width: 10),
+                OutlinedButton(
+                  style: _estiloBotonBarra(colores),
+                  onPressed: _salir,
+                  child: const Text('Salir'),
+                ),
+              ],
+              const SizedBox(width: 16),
             ],
           ),
           body: usarRail
@@ -113,6 +192,15 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                       labelType: extendido
                           ? NavigationRailLabelType.none
                           : NavigationRailLabelType.all,
+                      leading: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          EncabezadoMenuLateral(extendido: extendido),
+                          SeccionMenuLateral('Principal', extendido: extendido),
+                        ],
+                      ),
+                      trailing: VersionMenuLateral(extendido: extendido),
+                      trailingAtBottom: true,
                       onDestinationSelected: (valor) =>
                           setState(() => _indice = valor),
                       destinations: [
@@ -124,8 +212,14 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                           ),
                       ],
                     ),
-                    const VerticalDivider(width: 1),
-                    Expanded(child: cuerpo),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Expanded(child: cuerpo),
+                          const PieCorporativo(),
+                        ],
+                      ),
+                    ),
                   ],
                 )
               : cuerpo,
@@ -145,7 +239,45 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                   ],
                 ),
         );
+
+        return Column(
+          children: [
+            const FranjaMarca(),
+            Expanded(child: scaffold),
+          ],
+        );
       },
+    );
+  }
+
+  /// Botones de la barra superior: 36 px, borde fino, fondo transparente,
+  /// radio 8 y 13 px peso 600; los de solo ícono miden 36 x 36.
+  ButtonStyle _estiloBotonBarra(
+    ColoresCarrousel colores, {
+    bool soloIcono = false,
+  }) {
+    final forma = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8),
+      side: BorderSide(color: colores.line),
+    );
+    return ButtonStyle(
+      minimumSize: WidgetStatePropertyAll(
+        soloIcono ? const Size(36, 36) : const Size(0, 36),
+      ),
+      fixedSize: soloIcono ? const WidgetStatePropertyAll(Size(36, 36)) : null,
+      padding: WidgetStatePropertyAll(
+        soloIcono
+            ? EdgeInsets.zero
+            : const EdgeInsets.symmetric(horizontal: 14),
+      ),
+      backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
+      foregroundColor: WidgetStatePropertyAll(colores.ink),
+      overlayColor: WidgetStatePropertyAll(colores.hover),
+      side: WidgetStatePropertyAll(BorderSide(color: colores.line)),
+      shape: WidgetStatePropertyAll(forma),
+      textStyle: const WidgetStatePropertyAll(
+        TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+      ),
     );
   }
 }
